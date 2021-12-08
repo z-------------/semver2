@@ -19,39 +19,42 @@ import ./types
 import ./bump
 import pkg/npeg
 import std/strutils
-import std/options
 
 type
   PartialBehavior* = enum
     pbDisallow # partial semvers fail to parse
     pbZero # partial semvers have their empty parts replaced with 0
-    pbUp # hard to explain... 2.3 -> 2.4.0-0 
-  OptionalSemVer* = object
-    major*: Option[int]
-    minor*: Option[int]
-    patch*: Option[int]
-    prerelease*: seq[string]
-    build*: seq[string]
+    pbUp # hard to explain... 2.3 -> 2.4.0-0
+  HasPart* = enum
+    hpMajor
+    hpMinor
+    hpPatch
+  ParseState = object
+    sv: SemVer
+    hasParts: set[HasPart]
 
 const
-  SemVerParser* = peg("semVer", osv: OptionalSemVer):
+  SemVerParser = peg("semVer", ps: ParseState):
     semVer <- versionCore * ?('-' * prerelease) * ?('+' * build) * !1
 
     versionCore <- major * ?('.' * minor * ?('.' * patch))
     major <- numericIdent:
-      osv.major = parseInt($0).some
+      ps.sv.major = parseInt($0)
+      ps.hasParts.incl(hpMajor)
     minor <- numericIdent:
-      osv.minor = parseInt($0).some
+      ps.sv.minor = parseInt($0)
+      ps.hasParts.incl(hpMinor)
     patch <- numericIdent:
-      osv.patch = parseInt($0).some
+      ps.sv.patch = parseInt($0)
+      ps.hasParts.incl(hpPatch)
 
     prerelease <- prereleaseIdent * *('.' * prereleaseIdent)
     prereleaseIdent <- (alphanumericIdent | numericIdent):
-      osv.prerelease.add($0)
+      ps.sv.prerelease.add($0)
 
     build <- buildIdent * *('.' * buildIdent)
     buildIdent <- (alphanumericIdent | digits):
-      osv.build.add($0)
+      ps.sv.build.add($0)
 
     alphanumericIdent <-
       nonDigit * *identChar |
@@ -64,31 +67,31 @@ const
     positiveDigit <- {'1'..'9'}
     letter <- Alpha
 
-proc parseSemVer*(version: string): OptionalSemVer =
-  let parseResult = SemVerParser.match(version, result)
+proc parseSemVer*(version: string): (SemVer, set[HasPart]) =
+  var ps: ParseState
+  let parseResult = SemVerParser.match(version, ps)
   if not parseResult.ok:
     raise newException(ValueError, "invalid SemVer")
+  (ps.sv, ps.hasParts)
 
-proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, OptionalSemVer) =
-  let osv = parseSemVer(version)
-  var sv = initSemVer(osv.major.get(0), osv.minor.get(0), osv.patch.get(0), osv.prerelease, osv.build)
+proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, set[HasPart]) =
+  result = parseSemVer(version)
 
   case partialBehavior
   of pbDisallow:
-    if osv.minor.isNone:
+    if hpMinor notin result[1]:
       raise newException(ValueError, "invalid SemVer: missing minor")
-    elif osv.patch.isNone:
+    elif hpPatch notin result[1]:
       raise newException(ValueError, "invalid SemVer: missing patch")
   of pbZero:
     discard
   of pbUp:
-    if osv.minor.isNone:
-      sv = sv.bumpMajor()
-      sv.prerelease = @["0"]
-    elif osv.patch.isNone:
-      sv = sv.bumpMinor()
-      sv.prerelease = @["0"]
-  (sv, osv)
+    if hpMinor notin result[1]:
+      result[0] = result[0].bumpMajor()
+      result[0].prerelease = @["0"]
+    elif hpPatch notin result[1]:
+      result[0] = result[0].bumpMinor()
+      result[0].prerelease = @["0"]
 
 proc initSemVer*(version: string; partialBehavior = pbDisallow): SemVer =
   let (sv, _) = parseSemVer(version, partialBehavior)

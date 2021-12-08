@@ -21,7 +21,6 @@ import ./parse
 import pkg/npeg
 import std/strutils
 import std/sequtils
-import std/options
 
 type
   Operator = enum
@@ -76,9 +75,9 @@ const RangeParser = peg("ramge", ps: ParseState):
   hyphen <- >partial * " - " * >partial:
     let
       sv0 = initSemVer($1, pbZero)
-      (sv1, osv1) = parseSemVer($2, pbUp)
+      (sv1, hp1) = parseSemVer($2, pbUp)
     let secondOp =
-      if osv1.minor.isNone or osv1.patch.isNone:
+      if hpMinor notin hp1 or hpPatch notin hp1:
         opLt
       else:
         opLte
