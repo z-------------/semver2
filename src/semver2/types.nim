@@ -34,6 +34,9 @@ func initSemVer*(major: Natural; minor, patch = 0.Natural; prerelease, build = n
     build: build
   )
 
+func initSemVer*(parts: (int, int, int, seq[string], seq[string])): SemVer =
+  initSemVer(parts[0], parts[1], parts[2], parts[3], parts[4])
+
 func `$`*(sv: SemVer): string =
   result = $sv.major & '.' & $sv.minor & '.' & $sv.patch
   if sv.prerelease.len > 0:

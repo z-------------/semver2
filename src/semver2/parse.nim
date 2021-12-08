@@ -19,31 +19,40 @@ import ./types
 import pkg/npeg
 import std/strutils
 
-const
-  SemVerParser* = peg("semVer", sv: SemVer):
-    semVer <- versionCore * ?('-' * prerelease) * ?('+' * build)
+type
+  ParseState = object
+    sv: SemVer
+    hasMajor: bool
+    hasMinor: bool
+    hasPatch: bool
 
-    versionCore <- major * '.' * minor * '.' * patch
+const
+  SemVerParser* = peg("semVer", ps: ParseState):
+    semVer <- versionCore * ?('-' * prerelease) * ?('+' * build) | ""
+
+    versionCore <- major * ?('.' * minor * ?('.' * patch))
     major <- numericIdent:
-      sv.major = parseInt($0)
+      ps.sv.major = parseInt($0)
+      ps.hasMajor = true
     minor <- numericIdent:
-      sv.minor = parseInt($0)
+      ps.sv.minor = parseInt($0)
+      ps.hasMinor = true
     patch <- numericIdent:
-      sv.patch = parseInt($0)
+      ps.sv.patch = parseInt($0)
+      ps.hasPatch = true
 
     prerelease <- prereleaseIdent * *('.' * prereleaseIdent)
     prereleaseIdent <- (alphanumericIdent | numericIdent):
-      sv.prerelease.add($0)
+      ps.sv.prerelease.add($0)
 
     build <- buildIdent * *('.' * buildIdent)
     buildIdent <- (alphanumericIdent | digits):
-      sv.build.add($0)
+      ps.sv.build.add($0)
 
     alphanumericIdent <-
-      nonDigit * *identChars |
-      identChars * nonDigit * *identChars
+      nonDigit * *identChar |
+      +(identChar - nonDigit) * nonDigit * *identChar
     numericIdent <- '0' | positiveDigit * *digits
-    identChars <- +identChar
     identChar <- digit | nonDigit
     nonDigit <- letter | '-'
     digits <- +digit
@@ -51,7 +60,16 @@ const
     positiveDigit <- {'1'..'9'}
     letter <- Alpha
 
-proc initSemVer*(version: string): SemVer =
-  let parseResult = SemVerParser.match(version, result)
-  if not parseResult.ok:
-    raise newException(CatchableError, "invalid SemVer")
+proc initSemVer*(version: string; strict = true): SemVer =
+  var parseState: ParseState
+  let parseResult = SemVerParser.match(version, parseState)
+  if not parseResult.ok or parseResult.matchLen != version.len:
+    raise newException(ValueError, "invalid SemVer")
+  if strict:
+    if not parseState.hasMajor:
+      raise newException(ValueError, "invalid SemVer: missing major")
+    elif not parseState.hasMinor:
+      raise newException(ValueError, "invalid SemVer: missing minor")
+    elif not parseState.hasPatch:
+      raise newException(ValueError, "invalid SemVer: missing patch")
+  parseState.sv

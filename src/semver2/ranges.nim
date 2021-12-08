@@ -80,3 +80,6 @@ proc satisfies*(sv: SemVer; theRange: string): bool =
       if sv.satisfiesComparatorSet(comparatorSet):
         result = true
         break
+
+# TODO: special handling for prerelease tags
+# TODO: partial versions
