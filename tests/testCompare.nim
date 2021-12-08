@@ -51,8 +51,9 @@ suite "comparison":
     t[version] = true
 
   # from https://github.com/python-semver/python-semver/blob/b0f854da3424ed73231e4f55bac36c86b2c82987/tests/test_parsing.py
-  test "equal versions have equal hashes":
+  test "equal versions are equal and have equal hashes":
     let
       a = initSemVer("1.2.3-alpha.1.2+build.11.e0f985a")
       b = initSemVer("1.2.3-alpha.1.2+build.22.a589f0e")
+    check a == b
     check a.hash == b.hash
