@@ -16,6 +16,7 @@
 # along with semver2.  If not, see <http://www.gnu.org/licenses/>.
 
 from std/strutils import join
+import std/hashes
 
 type
   SemVer* = object
@@ -43,3 +44,12 @@ func `$`*(sv: SemVer): string =
     result.add('-' & sv.prerelease.join("."))
   if sv.build.len > 0:
     result.add('+' & sv.build.join("."))
+
+func hash*(sv: SemVer): Hash =
+  var h: Hash
+  h = h !& sv.major.hash
+  h = h !& sv.minor.hash
+  h = h !& sv.patch.hash
+  h = h !& sv.prerelease.hash
+  # build intentionally excluded
+  !$h

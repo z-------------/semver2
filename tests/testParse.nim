@@ -15,10 +15,6 @@ suite "parsing":
     ]:
       check initSemVer(version) == initSemVer(expected)
 
-  # TODO
-  # test "parse version hash":
-    # discard
-  
   test "parse zero prerelease":
     for (version, expected) in [
       ("1.2.3-rc.0+build.0", (1, 2, 3, @["rc", "0"], @["build", "0"])),
@@ -30,7 +26,3 @@ suite "parsing":
     for version in ["01.2.3", "1.02.3", "1.2.03"]:
       expect ValueError:
         discard initSemVer(version)
-
-  # TODO
-  # test "equal versions have equal hashes":
-    # discard
