@@ -16,7 +16,6 @@
 # along with semver2.  If not, see <http://www.gnu.org/licenses/>.
 
 import ./types
-import ./bump
 import pkg/npeg
 import std/strutils
 
@@ -24,54 +23,74 @@ type
   PartialBehavior* = enum
     pbDisallow # partial semvers fail to parse
     pbZero # partial semvers have their empty parts replaced with 0
-    pbUp # hard to explain... 2.3 -> 2.4.0-0
   HasPart* = enum
     hpMajor
     hpMinor
     hpPatch
   ParseState = object
-    sv: SemVer
-    hasParts: set[HasPart]
+    sv*: SemVer
+    hasParts*: set[HasPart]
 
 const
-  SemVerParser = peg("semVer", ps: ParseState):
-    semVer <- versionCore * ?('-' * prerelease) * ?('+' * build) * !1
+  MagicNumberX = -1
 
-    versionCore <- major * ?('.' * minor * ?('.' * patch))
-    major <- numericIdent:
-      ps.sv.major = parseInt($0)
-      ps.hasParts.incl(hpMajor)
-    minor <- numericIdent:
-      ps.sv.minor = parseInt($0)
-      ps.hasParts.incl(hpMinor)
-    patch <- numericIdent:
-      ps.sv.patch = parseInt($0)
-      ps.hasParts.incl(hpPatch)
+template parseNumPart(numPart: string): int =
+  case numPart
+  of "X", "x", "*":
+    MagicNumberX
+  else:
+    parseInt(numPart)
 
-    prerelease <- prereleaseIdent * *('.' * prereleaseIdent)
-    prereleaseIdent <- (alphanumericIdent | numericIdent):
-      ps.sv.prerelease.add($0)
+grammar("semVer"):
+  semVer <- versionCore * ?('-' * prerelease) * ?('+' * build)
 
-    build <- buildIdent * *('.' * buildIdent)
-    buildIdent <- (alphanumericIdent | digits):
-      ps.sv.build.add($0)
+  versionCore <- major * ?('.' * minor * ?('.' * patch))
+  major <- numericIdent
+  minor <- numericIdent
+  patch <- numericIdent
 
-    alphanumericIdent <-
-      nonDigit * *identChar |
-      +(identChar - nonDigit) * nonDigit * *identChar
-    numericIdent <- '0' | positiveDigit * *digits
-    identChar <- digit | nonDigit
-    nonDigit <- letter | '-'
-    digits <- +digit
-    digit <- '0' | positiveDigit
-    positiveDigit <- {'1'..'9'}
-    letter <- Alpha
+  prerelease <- prereleaseIdent * *('.' * prereleaseIdent)
+  prereleaseIdent <- (alphanumericIdent | numericIdent)
+
+  build <- buildIdent * *('.' * buildIdent)
+  buildIdent <- (alphanumericIdent | digits)
+
+  alphanumericIdent <-
+    nonDigit * *identChar |
+    +(identChar - nonDigit) * nonDigit * *identChar
+  numericIdent <- '0' | positiveDigit * *digits
+  identChar <- digit | nonDigit
+  nonDigit <- letter | '-'
+  digits <- +digit
+  digit <- '0' | positiveDigit
+  positiveDigit <- {'1'..'9'}
+  letter <- Alpha
+
+const SemVerParser = peg("semVer", ps: ParseState):
+  semVer <- semVer.semVer * !1
+
+  semVer.major <- >semVer.major:
+    ps.sv.major = parseNumPart($1)
+    ps.hasParts.incl(hpMajor)
+  semVer.minor <- >semVer.minor:
+    ps.sv.minor = parseNumPart($1)
+    ps.hasParts.incl(hpMinor)
+  semVer.patch <- >semVer.patch:
+    ps.sv.patch = parseNumPart($1)
+    ps.hasParts.incl(hpPatch)
+
+  semVer.prereleaseIdent <- >semVer.prereleaseIdent:
+    ps.sv.prerelease.add($1)
+  semVer.buildIdent <- >semVer.buildIdent:
+    ps.sv.build.add($1)
 
 proc parseSemVer*(version: string): (SemVer, set[HasPart]) =
   var ps: ParseState
   let parseResult = SemVerParser.match(version, ps)
   if not parseResult.ok:
     raise newException(ValueError, "invalid SemVer")
+  if ps.sv.major == MagicNumberX or ps.sv.minor == MagicNumberX or ps.sv.patch == MagicNumberX:
+    raise newException(ValueError, "X, x, and * are not allowed in a concrete SemVer")
   (ps.sv, ps.hasParts)
 
 proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, set[HasPart]) =
@@ -85,13 +104,6 @@ proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, s
       raise newException(ValueError, "invalid SemVer: missing patch")
   of pbZero:
     discard
-  of pbUp:
-    if hpMinor notin result[1]:
-      result[0] = result[0].bumpMajor()
-      result[0].prerelease = @["0"]
-    elif hpPatch notin result[1]:
-      result[0] = result[0].bumpMinor()
-      result[0].prerelease = @["0"]
 
 proc initSemVer*(version: string; partialBehavior = pbDisallow): SemVer =
   let (sv, _) = parseSemVer(version, partialBehavior)

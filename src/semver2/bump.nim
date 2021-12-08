@@ -17,13 +17,19 @@
 
 import ./types
 
-func bumpMajor*(sv: SemVer): SemVer =
-  initSemVer(sv.major + 1)
+func bumpMajor*(sv: SemVer; setPrereleaseZero = false): SemVer =
+  result = initSemVer(sv.major + 1)
+  if setPrereleaseZero:
+    result.prerelease = @["0"]
 
-func bumpMinor*(sv: SemVer): SemVer =
-  initSemVer(sv.major, sv.minor + 1)
+func bumpMinor*(sv: SemVer; setPrereleaseZero = false): SemVer =
+  result = initSemVer(sv.major, sv.minor + 1)
+  if setPrereleaseZero:
+    result.prerelease = @["0"]
 
-func bumpPatch*(sv: SemVer): SemVer =
-  initSemVer(sv.major, sv.minor, sv.patch + 1)
+func bumpPatch*(sv: SemVer; setPrereleaseZero = false): SemVer =
+  result = initSemVer(sv.major, sv.minor, sv.patch + 1)
+  if setPrereleaseZero:
+    result.prerelease = @["0"]
 
 # TODO: bumpPrerelease, bumpBuild

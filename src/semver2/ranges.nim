@@ -17,7 +17,8 @@
 
 import ./types
 import ./compare
-import ./parse
+import ./parse {.all.}
+import ./bump
 import pkg/npeg
 import std/strutils
 import std/sequtils
@@ -36,9 +37,6 @@ type
   Comparator = object
     operator: Operator
     version: SemVer
-  ParseState = object
-    curComparatorSet: ComparatorSet
-    r: Range
 
 func initComparator(operator: Operator; version: SemVer): Comparator =
   Comparator(
@@ -55,49 +53,70 @@ func `$`(cs: ComparatorSet): string =
 func `$`(r: Range): string =
   r.comparatorSets.map(`$`).join(" || ")
 
-proc parsePrimitiveComparator(c: string): Comparator =
-  var isParsed = false
-  for op in Operator:
-    if c.startsWith($op):
-      let verStr = c[($op).len..c.high]
-      result = initComparator(op, initSemVer(verStr, pbZero))
-      isParsed = true
-      break
-  if not isParsed:
-    result = initComparator(opEq, initSemVer(c, pbZero))
+type
+  ParseState = object
+    r: Range
+    curComparatorSet: ComparatorSet
+    curPs, prevPs: parse.ParseState
 
+# parsing doesn't work correctly at compile time if I use reset() instead of explicitly constructing new objects for ComparatorSet, SemVer, and set[HasPart]
+# whose bug is this?
 const RangeParser = peg("ramge", ps: ParseState):
   ramge <- comparatorSet * *(logicalOr * comparatorSet) * !1
   logicalOr <- *' ' * "||" * *' '
   comparatorSet <- hyphen | simple * *(' ' * simple) | "":
     ps.r.comparatorSets.add(ps.curComparatorSet)
-    ps.curComparatorSet.reset()
-  hyphen <- >partial * " - " * >partial:
+    ps.curComparatorSet = ComparatorSet()
+  simple <- primitive | xpartial | tilde | caret
+
+  primitive <- >("<=" | '<' | ">=" | '>' | '=') * partial:
     let
-      sv0 = initSemVer($1, pbZero)
-      (sv1, hp1) = parseSemVer($2, pbUp)
+      op = parseEnum[Operator]($1, default = opEq)
+      c = initComparator(op, ps.curPs.sv)
+    ps.curComparatorSet.comparators.add(c)
+
+  # X.Y.Z - A.B.C
+  hyphen <- >partial * " - " * >partial:
+    let curHp = ps.curPs.hasParts
+    if hpMinor notin curHp:
+      ps.curPs.sv = ps.curPs.sv.bumpMajor(setPrereleaseZero = true)
+    elif hpPatch notin curHp:
+      ps.curPs.sv = ps.curPs.sv.bumpMinor(setPrereleaseZero = true)
     let secondOp =
-      if hpMinor notin hp1 or hpPatch notin hp1:
+      if ps.curPs.hasParts != {hpMajor, hpMinor, hpPatch}:
         opLt
       else:
         opLte
-    ps.curComparatorSet.comparators.add(initComparator(opGte, sv0))
-    ps.curComparatorSet.comparators.add(initComparator(secondOp, sv1))
-  simple <- primitive | literal | tilde | caret
-  primitive <- ("<=" | '<' | ">=" | '>' | '=') * partial:
-    ps.curComparatorSet.comparators.add(parsePrimitiveComparator($0))
-  literal <- partial:
-    ps.curComparatorSet.comparators.add(initComparator(opEq, initSemVer($0, pbZero)))
-  partial <- xr * ?('.' * xr * ?('.' * xr * ?qualifier))
-  xr <- 'x' | 'X' | '*' | nr
-  nr <- '0' | {'1'..'9'} * *{'0'..'9'}
+    ps.curComparatorSet.comparators.add(initComparator(opGte, ps.prevPs.sv))
+    ps.curComparatorSet.comparators.add(initComparator(secondOp, ps.curPs.sv))
+
+  # 1.2.x
+  xpartial <- partial:
+    ps.curComparatorSet.comparators.add(initComparator(opEq, ps.curPs.sv))
+
+  # ~1.2.3
   tilde <- '~' * >partial
+
+  # ^1.2.3
   caret <- '^' * >partial
-  qualifier <- ?('-' * pre) * ?('+' * build)
-  pre <- parts
-  build <- parts
-  parts <- part * *('.' * part)
-  part <- nr | +{'-', '0'..'9', 'A'..'Z', 'a'..'z'}
+
+  partial <- semVer.semVer
+  semVer.major <- >semVer.major:
+    swap(ps.prevPs, ps.curPs)
+    ps.curPs.sv = SemVer()
+    ps.curPs.hasParts = {}
+    ps.curPs.sv.major = parseNumPart($1)
+    ps.curPs.hasParts.incl(hpMajor)
+  semVer.minor <- >semVer.minor:
+    ps.curPs.sv.minor = parseNumPart($1)
+    ps.curPs.hasParts.incl(hpMinor)
+  semVer.patch <- >semVer.patch:
+    ps.curPs.sv.patch = parseNumPart($1)
+    ps.curPs.hasParts.incl(hpPatch)
+  semVer.prereleaseIdent <- >semVer.prereleaseIdent:
+    ps.curPs.sv.prerelease.add($1)
+  semVer.buildIdent <- >semVer.buildIdent:
+    ps.curPs.sv.build.add($1)
 
 proc parseRange(rangeStr: string): Range =
   var ps: ParseState
