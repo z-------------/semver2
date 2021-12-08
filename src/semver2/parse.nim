@@ -28,7 +28,7 @@ type
 
 const
   SemVerParser* = peg("semVer", ps: ParseState):
-    semVer <- versionCore * ?('-' * prerelease) * ?('+' * build) | ""
+    semVer <- (versionCore * ?('-' * prerelease) * ?('+' * build) | "") * !1
 
     versionCore <- major * ?('.' * minor * ?('.' * patch))
     major <- numericIdent:
@@ -63,7 +63,7 @@ const
 proc initSemVer*(version: string; strict = true): SemVer =
   var parseState: ParseState
   let parseResult = SemVerParser.match(version, parseState)
-  if not parseResult.ok or parseResult.matchLen != version.len:
+  if not parseResult.ok:
     raise newException(ValueError, "invalid SemVer")
   if strict:
     if not parseState.hasMajor:
