@@ -8,7 +8,7 @@ type
     prerelease*: seq[string]
     build*: seq[string]
 
-func initSemVer*(major: int; minor, patch = 0; prerelease, build = newSeq[string]()): SemVer =
+func initSemVer*(major: Natural; minor, patch = 0.Natural; prerelease, build = newSeq[string]()): SemVer =
   SemVer(
     major: major,
     minor: minor,
