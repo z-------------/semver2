@@ -2,7 +2,7 @@
 
 version       = "0.0.0"
 author        = "Zack Guard"
-description   = "SemVer parsing, comparison, and constraints"
+description   = "SemVer parsing, comparison, and ranges"
 license       = "GPL-3.0-or-later"
 srcDir        = "src"
 

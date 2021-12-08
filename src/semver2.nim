@@ -18,7 +18,9 @@
 import ./semver2/types
 import ./semver2/parse
 import ./semver2/compare
+import ./semver2/ranges
 
 export types
 export parse
 export compare
+export ranges
