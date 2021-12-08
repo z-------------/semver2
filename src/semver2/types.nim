@@ -20,9 +20,9 @@ import std/hashes
 
 type
   SemVer* = object
-    major*: Natural
-    minor*: Natural
-    patch*: Natural
+    major*: int
+    minor*: int
+    patch*: int
     prerelease*: seq[string]
     build*: seq[string]
 
@@ -34,9 +34,6 @@ func initSemVer*(major: Natural; minor, patch = 0.Natural; prerelease, build = n
     prerelease: prerelease,
     build: build
   )
-
-func initSemVer*(parts: (int, int, int, seq[string], seq[string])): SemVer =
-  initSemVer(parts[0], parts[1], parts[2], parts[3], parts[4])
 
 func `$`*(sv: SemVer): string =
   result = $sv.major & '.' & $sv.minor & '.' & $sv.patch

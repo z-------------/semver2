@@ -4,6 +4,9 @@ import semver2
 
 # Test cases taken from https://github.com/python-semver/python-semver/blob/b0f854da3424ed73231e4f55bac36c86b2c82987/tests/test_parsing.py
 
+template initSemVer(parts: (int, int, int, seq[string], seq[string])): SemVer =
+  initSemVer(parts[0], parts[1], parts[2], parts[3], parts[4])
+
 suite "parsing":
   test "parse version":
     for (version, expected) in [

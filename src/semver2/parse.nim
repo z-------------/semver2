@@ -16,38 +16,42 @@
 # along with semver2.  If not, see <http://www.gnu.org/licenses/>.
 
 import ./types
+import ./bump
 import pkg/npeg
 import std/strutils
+import std/options
 
 type
-  ParseState = object
-    sv: SemVer
-    hasMajor: bool
-    hasMinor: bool
-    hasPatch: bool
+  PartialBehavior* = enum
+    pbDisallow # partial semvers fail to parse
+    pbZero # partial semvers have their empty parts replaced with 0
+    pbUp # hard to explain... 2.3 -> 2.4.0-0 
+  OptionalSemVer* = object
+    major*: Option[int]
+    minor*: Option[int]
+    patch*: Option[int]
+    prerelease*: seq[string]
+    build*: seq[string]
 
 const
-  SemVerParser* = peg("semVer", ps: ParseState):
-    semVer <- (versionCore * ?('-' * prerelease) * ?('+' * build) | "") * !1
+  SemVerParser* = peg("semVer", osv: OptionalSemVer):
+    semVer <- versionCore * ?('-' * prerelease) * ?('+' * build) * !1
 
     versionCore <- major * ?('.' * minor * ?('.' * patch))
     major <- numericIdent:
-      ps.sv.major = parseInt($0)
-      ps.hasMajor = true
+      osv.major = parseInt($0).some
     minor <- numericIdent:
-      ps.sv.minor = parseInt($0)
-      ps.hasMinor = true
+      osv.minor = parseInt($0).some
     patch <- numericIdent:
-      ps.sv.patch = parseInt($0)
-      ps.hasPatch = true
+      osv.patch = parseInt($0).some
 
     prerelease <- prereleaseIdent * *('.' * prereleaseIdent)
     prereleaseIdent <- (alphanumericIdent | numericIdent):
-      ps.sv.prerelease.add($0)
+      osv.prerelease.add($0)
 
     build <- buildIdent * *('.' * buildIdent)
     buildIdent <- (alphanumericIdent | digits):
-      ps.sv.build.add($0)
+      osv.build.add($0)
 
     alphanumericIdent <-
       nonDigit * *identChar |
@@ -60,16 +64,32 @@ const
     positiveDigit <- {'1'..'9'}
     letter <- Alpha
 
-proc initSemVer*(version: string; strict = true): SemVer =
-  var parseState: ParseState
-  let parseResult = SemVerParser.match(version, parseState)
+proc parseSemVer*(version: string): OptionalSemVer =
+  let parseResult = SemVerParser.match(version, result)
   if not parseResult.ok:
     raise newException(ValueError, "invalid SemVer")
-  if strict:
-    if not parseState.hasMajor:
-      raise newException(ValueError, "invalid SemVer: missing major")
-    elif not parseState.hasMinor:
+
+proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, OptionalSemVer) =
+  let osv = parseSemVer(version)
+  var sv = initSemVer(osv.major.get(0), osv.minor.get(0), osv.patch.get(0), osv.prerelease, osv.build)
+
+  case partialBehavior
+  of pbDisallow:
+    if osv.minor.isNone:
       raise newException(ValueError, "invalid SemVer: missing minor")
-    elif not parseState.hasPatch:
+    elif osv.patch.isNone:
       raise newException(ValueError, "invalid SemVer: missing patch")
-  parseState.sv
+  of pbZero:
+    discard
+  of pbUp:
+    if osv.minor.isNone:
+      sv = sv.bumpMajor()
+      sv.prerelease = @["0"]
+    elif osv.patch.isNone:
+      sv = sv.bumpMinor()
+      sv.prerelease = @["0"]
+  (sv, osv)
+
+proc initSemVer*(version: string; partialBehavior = pbDisallow): SemVer =
+  let (sv, _) = parseSemVer(version, partialBehavior)
+  sv

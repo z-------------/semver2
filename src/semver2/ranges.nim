@@ -18,8 +18,10 @@
 import ./types
 import ./compare
 import ./parse
+import pkg/npeg
 import std/strutils
 import std/sequtils
+import std/options
 
 type
   Operator = enum
@@ -28,9 +30,16 @@ type
     opLt = "<"
     opGte = ">="
     opGt = ">"
+  Range* = object
+    comparatorSets: seq[ComparatorSet]
+  ComparatorSet = object
+    comparators: seq[Comparator]
   Comparator = object
     operator: Operator
     version: SemVer
+  ParseState = object
+    curComparatorSet: ComparatorSet
+    r: Range
 
 func initComparator(operator: Operator; version: SemVer): Comparator =
   Comparator(
@@ -38,18 +47,67 @@ func initComparator(operator: Operator; version: SemVer): Comparator =
     version: version
   )
 
-proc parseComparator(c: string): Comparator =
+func `$`(c: Comparator): string =
+  $c.operator & $c.version
+
+func `$`(cs: ComparatorSet): string =
+  cs.comparators.map(`$`).join(" ")
+
+func `$`(r: Range): string =
+  r.comparatorSets.map(`$`).join(" || ")
+
+proc parsePrimitiveComparator(c: string): Comparator =
   var isParsed = false
   for op in Operator:
     if c.startsWith($op):
       let verStr = c[($op).len..c.high]
-      result = initComparator(op, initSemVer(verStr))
+      result = initComparator(op, initSemVer(verStr, pbZero))
       isParsed = true
       break
   if not isParsed:
-    result = initComparator(opEq, initSemVer(c))
+    result = initComparator(opEq, initSemVer(c, pbZero))
 
-func satisfiesComparator(sv: SemVer; c: Comparator): bool =
+const RangeParser = peg("ramge", ps: ParseState):
+  ramge <- comparatorSet * *(logicalOr * comparatorSet) * !1
+  logicalOr <- *' ' * "||" * *' '
+  comparatorSet <- hyphen | simple * *(' ' * simple) | "":
+    ps.r.comparatorSets.add(ps.curComparatorSet)
+    ps.curComparatorSet.reset()
+  hyphen <- >partial * " - " * >partial:
+    let
+      sv0 = initSemVer($1, pbZero)
+      (sv1, osv1) = parseSemVer($2, pbUp)
+    let secondOp =
+      if osv1.minor.isNone or osv1.patch.isNone:
+        opLt
+      else:
+        opLte
+    ps.curComparatorSet.comparators.add(initComparator(opGte, sv0))
+    ps.curComparatorSet.comparators.add(initComparator(secondOp, sv1))
+  simple <- primitive | literal | tilde | caret
+  primitive <- ("<=" | '<' | ">=" | '>' | '=') * partial:
+    ps.curComparatorSet.comparators.add(parsePrimitiveComparator($0))
+  literal <- partial:
+    ps.curComparatorSet.comparators.add(initComparator(opEq, initSemVer($0, pbZero)))
+  partial <- xr * ?('.' * xr * ?('.' * xr * ?qualifier))
+  xr <- 'x' | 'X' | '*' | nr
+  nr <- '0' | {'1'..'9'} * *{'0'..'9'}
+  tilde <- '~' * >partial
+  caret <- '^' * >partial
+  qualifier <- ?('-' * pre) * ?('+' * build)
+  pre <- parts
+  build <- parts
+  parts <- part * *('.' * part)
+  part <- nr | +{'-', '0'..'9', 'A'..'Z', 'a'..'z'}
+
+proc parseRange(rangeStr: string): Range =
+  var ps: ParseState
+  let parseResult = RangeParser.match(rangeStr, ps)
+  if not parseResult.ok:
+    raise newException(ValueError, "invalid range")
+  ps.r
+
+func satisfies(sv: SemVer; c: Comparator): bool =
   case c.operator
   of opEq:
     sv == c.version
@@ -62,24 +120,30 @@ func satisfiesComparator(sv: SemVer; c: Comparator): bool =
   of opGt:
     sv > c.version
 
-proc satisfiesComparatorSet(sv: SemVer; comparatorSet: string): bool =
+func satisfies(sv: SemVer; comparatorSet: ComparatorSet): bool =
   result = true
-  let comparators = comparatorSet.split(" ").filterIt(it.len > 0).mapIt(it.strip)
-  for cStr in comparators:
-    let c = parseComparator(cStr)
-    if not sv.satisfiesComparator(c):
+  for c in comparatorSet.comparators:
+    if not sv.satisfies(c):
       result = false
       break
 
-proc satisfies*(sv: SemVer; theRange: string): bool =
-  let comparatorSets = theRange.split("||").mapIt(it.strip)
-  if comparatorSets.len == 0:
+func satisfies*(sv: SemVer; ramge: Range): bool =
+  if ramge.comparatorSets.len == 0:
     return true
   else:
-    for comparatorSet in comparatorSets:
-      if sv.satisfiesComparatorSet(comparatorSet):
+    for comparatorSet in ramge.comparatorSets:
+      if sv.satisfies(comparatorSet):
         result = true
         break
 
-# TODO: special handling for prerelease tags
-# TODO: partial versions
+proc satisfies*(sv: SemVer; rangeStr: string): bool =
+  let ramge = parseRange(rangeStr)
+  sv.satisfies(ramge)
+
+template contains*(ramge: Range; sv: SemVer): bool =
+  sv.satisfies(ramge)
+
+template contains*(rangeStr: string; sv: SemVer): bool =
+  sv.satisfies(rangeStr)
+
+# TODO: fully implement the range rules
