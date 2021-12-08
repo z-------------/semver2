@@ -3,5 +3,6 @@
 !*.*
 !/*
 *.exe
+.nimcache
 
 .vscode
