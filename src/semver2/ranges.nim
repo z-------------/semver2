@@ -136,12 +136,12 @@ const RangeParser = peg("ramge", ps: ParseState):
       elif hp == {hpMajor}: # 1.*
         @[
           initComparator(opGte, initSemVer(sv.major, 0, 0)),
-          initComparator(opLt, initSemVer(sv.major + 1, 0, 0, @["0"])),
+          initComparator(opLt, sv.bumpMajor(setPrereleaseZero = true)),
         ]
       elif hp == {hpMajor, hpMinor}: # 1.2.*
         @[
           initComparator(opGte, initSemVer(sv.major, sv.minor, 0)),
-          initComparator(opLt, initSemVer(sv.major, sv.minor + 1, 0, @["0"])),
+          initComparator(opLt, sv.bumpMinor(setPrereleaseZero = true)),
         ]
       else: # 1.2.3
         @[initComparator(opEq, sv)]
