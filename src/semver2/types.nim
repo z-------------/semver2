@@ -26,7 +26,7 @@ type
     prerelease*: seq[string]
     build*: seq[string]
 
-func initSemVer*(major: Natural; minor, patch = 0.Natural; prerelease, build = newSeq[string]()): SemVer =
+func initSemVer*(major, minor, patch = 0.Natural; prerelease, build = newSeq[string]()): SemVer =
   SemVer(
     major: major,
     minor: minor,
@@ -34,6 +34,15 @@ func initSemVer*(major: Natural; minor, patch = 0.Natural; prerelease, build = n
     prerelease: prerelease,
     build: build
   )
+
+func `[]`*(sv: SemVer; idx: range[0..2]): int =
+  case idx
+  of 0:
+    sv.major
+  of 1:
+    sv.minor
+  of 2:
+    sv.patch
 
 func `$`*(sv: SemVer): string =
   result = $sv.major & '.' & $sv.minor & '.' & $sv.patch

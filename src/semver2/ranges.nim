@@ -23,6 +23,8 @@ import pkg/npeg
 import std/strutils
 import std/sequtils
 
+# types #
+
 type
   Operator = enum
     opEq = "="
@@ -30,10 +32,8 @@ type
     opLt = "<"
     opGte = ">="
     opGt = ">"
-  Range* = object
-    comparatorSets: seq[ComparatorSet]
-  ComparatorSet = object
-    comparators: seq[Comparator]
+  Range* = seq[ComparatorSet]
+  ComparatorSet = seq[Comparator]
   Comparator = object
     operator: Operator
     version: SemVer
@@ -44,55 +44,107 @@ func initComparator(operator: Operator; version: SemVer): Comparator =
     version: version
   )
 
+func initComparatorSet(): ComparatorSet =
+  newSeq[Comparator]()
+
 func `$`(c: Comparator): string =
   $c.operator & $c.version
 
 func `$`(cs: ComparatorSet): string =
-  cs.comparators.map(`$`).join(" ")
+  cs.map(`$`).join(" ")
 
 func `$`(r: Range): string =
-  r.comparatorSets.map(`$`).join(" || ")
+  r.map(`$`).join(" || ")
+
+# parsing #
 
 type
   ParseState = object
     r: Range
-    curComparatorSet: ComparatorSet
+    comparatorSet: ComparatorSet
     curPs, prevPs: parse.ParseState
 
+func has(hp: set[HasPart]; idx: range[0..2]): bool =
+  case idx
+  of 0:
+    hpMajor in hp
+  of 1:
+    hpMinor in hp
+  of 2:
+    hpPatch in hp
+
+func validateXRange(sv: SemVer; hp: set[HasPart]): bool =
+  ## Return false for x-ranges with concrete parts after the first X, e.g. 1.x.3
+  var foundX = false
+  for i in 0..2:
+    if sv[i] == X:
+      foundX = true
+    elif foundX and hp.has(i):
+      return false
+  true
+
+func normalizeXRange(sv: SemVer; hp: set[HasPart]): (SemVer, set[HasPart]) =
+  ## Given a normalized x-range semver, replace Xs with empty
+  if sv.major == X:
+    (initSemVer(prerelease = sv.prerelease, build = sv.build), {})
+  elif sv.minor == X:
+    (initSemVer(sv.major, prerelease = sv.prerelease, build = sv.build), {hpMajor})
+  elif sv.patch == X:
+    (initSemVer(sv.major, sv.minor, prerelease = sv.prerelease, build = sv.build), {hpMajor, hpMinor})
+  else:
+    (sv, hp)
+
 # parsing doesn't work correctly at compile time if I use reset() instead of explicitly constructing new objects for ComparatorSet, SemVer, and set[HasPart]
-# whose bug is this?
 const RangeParser = peg("ramge", ps: ParseState):
   ramge <- comparatorSet * *(logicalOr * comparatorSet) * !1
   logicalOr <- *' ' * "||" * *' '
   comparatorSet <- hyphen | simple * *(' ' * simple) | "":
-    ps.r.comparatorSets.add(ps.curComparatorSet)
-    ps.curComparatorSet = ComparatorSet()
+    ps.r.add(ps.comparatorSet)
+    ps.comparatorSet = initComparatorSet()
   simple <- primitive | xpartial | tilde | caret
 
   primitive <- >("<=" | '<' | ">=" | '>' | '=') * partial:
-    let
-      op = parseEnum[Operator]($1, default = opEq)
-      c = initComparator(op, ps.curPs.sv)
-    ps.curComparatorSet.comparators.add(c)
+    ps.comparatorSet.add:
+      let op = parseEnum[Operator]($1, default = opEq)
+      @[initComparator(op, ps.curPs.sv)]
 
   # X.Y.Z - A.B.C
   hyphen <- >partial * " - " * >partial:
-    let curHp = ps.curPs.hasParts
-    if hpMinor notin curHp:
-      ps.curPs.sv = ps.curPs.sv.bumpMajor(setPrereleaseZero = true)
-    elif hpPatch notin curHp:
-      ps.curPs.sv = ps.curPs.sv.bumpMinor(setPrereleaseZero = true)
-    let secondOp =
-      if ps.curPs.hasParts != {hpMajor, hpMinor, hpPatch}:
-        opLt
-      else:
-        opLte
-    ps.curComparatorSet.comparators.add(initComparator(opGte, ps.prevPs.sv))
-    ps.curComparatorSet.comparators.add(initComparator(secondOp, ps.curPs.sv))
+    ps.comparatorSet.add:
+      let curHp = ps.curPs.hasParts
+      if hpMinor notin curHp:
+        ps.curPs.sv = ps.curPs.sv.bumpMajor(setPrereleaseZero = true)
+      elif hpPatch notin curHp:
+        ps.curPs.sv = ps.curPs.sv.bumpMinor(setPrereleaseZero = true)
+      let secondOp =
+        if ps.curPs.hasParts != {hpMajor, hpMinor, hpPatch}:
+          opLt
+        else:
+          opLte
+      @[
+        initComparator(opGte, ps.prevPs.sv),
+        initComparator(secondOp, ps.curPs.sv),
+      ]
 
   # 1.2.x
   xpartial <- partial:
-    ps.curComparatorSet.comparators.add(initComparator(opEq, ps.curPs.sv))
+    validate validateXRange(ps.curPs.sv, ps.curPs.hasParts)
+    ps.comparatorSet.add:
+      let (sv, hp) = normalizeXRange(ps.curPs.sv, ps.curPs.hasParts)
+      if hp == {}: # *
+        @[initComparator(opGte, initSemVer(0, 0, 0))]
+      elif hp == {hpMajor}: # 1.*
+        @[
+          initComparator(opGte, initSemVer(sv.major, 0, 0)),
+          initComparator(opLt, initSemVer(sv.major + 1, 0, 0, @["0"])),
+        ]
+      elif hp == {hpMajor, hpMinor}: # 1.2.*
+        @[
+          initComparator(opGte, initSemVer(sv.major, sv.minor, 0)),
+          initComparator(opLt, initSemVer(sv.major, sv.minor + 1, 0, @["0"])),
+        ]
+      else: # 1.2.3
+        @[initComparator(opEq, sv)]
 
   # ~1.2.3
   tilde <- '~' * >partial
@@ -140,16 +192,16 @@ func satisfies(sv: SemVer; c: Comparator): bool =
 
 func satisfies(sv: SemVer; comparatorSet: ComparatorSet): bool =
   result = true
-  for c in comparatorSet.comparators:
+  for c in comparatorSet:
     if not sv.satisfies(c):
       result = false
       break
 
 func satisfies*(sv: SemVer; ramge: Range): bool =
-  if ramge.comparatorSets.len == 0:
+  if ramge.len == 0:
     return true
   else:
-    for comparatorSet in ramge.comparatorSets:
+    for comparatorSet in ramge:
       if sv.satisfies(comparatorSet):
         result = true
         break

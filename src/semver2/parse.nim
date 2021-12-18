@@ -32,22 +32,23 @@ type
     hasParts*: set[HasPart]
 
 const
-  MagicNumberX = -1
+  X* = -1
 
 template parseNumPart(numPart: string): int =
   case numPart
   of "X", "x", "*":
-    MagicNumberX
+    X
   else:
     parseInt(numPart)
 
 grammar("semVer"):
-  semVer <- versionCore * ?('-' * prerelease) * ?('+' * build)
+  semVer <- ?(versionCore * ?('-' * prerelease) * ?('+' * build))
 
   versionCore <- major * ?('.' * minor * ?('.' * patch))
-  major <- numericIdent
-  minor <- numericIdent
-  patch <- numericIdent
+  versionCorePart <- xIdent | numericIdent
+  major <- versionCorePart
+  minor <- versionCorePart
+  patch <- versionCorePart
 
   prerelease <- prereleaseIdent * *('.' * prereleaseIdent)
   prereleaseIdent <- (alphanumericIdent | numericIdent)
@@ -55,6 +56,7 @@ grammar("semVer"):
   build <- buildIdent * *('.' * buildIdent)
   buildIdent <- (alphanumericIdent | digits)
 
+  xIdent <- {'X', 'x', '*'}
   alphanumericIdent <-
     nonDigit * *identChar |
     +(identChar - nonDigit) * nonDigit * *identChar
@@ -89,7 +91,9 @@ proc parseSemVer*(version: string): (SemVer, set[HasPart]) =
   let parseResult = SemVerParser.match(version, ps)
   if not parseResult.ok:
     raise newException(ValueError, "invalid SemVer")
-  if ps.sv.major == MagicNumberX or ps.sv.minor == MagicNumberX or ps.sv.patch == MagicNumberX:
+  if ps.hasParts == {}:
+    raise newException(ValueError, "empty SemVer")
+  if ps.sv.major == X or ps.sv.minor == X or ps.sv.patch == X:
     raise newException(ValueError, "X, x, and * are not allowed in a concrete SemVer")
   (ps.sv, ps.hasParts)
 

@@ -33,3 +33,14 @@ suite "ranges":
       ("1.2.3 - 2", ">=1.2.3 <3.0.0-0"),
     ]:
       check parseRange(ramge) == parseRange(expected)
+
+  test "x-range examples from node-semver readme":
+    for (ramge, expected) in [
+      ("*", ">=0.0.0"),
+      ("1.x", ">=1.0.0 <2.0.0-0"),
+      ("1.2.x", ">=1.2.0 <1.3.0-0"),
+      ("", ">=0.0.0"),
+      ("1", ">=1.0.0 <2.0.0-0"),
+      ("1.2", ">=1.2.0 <1.3.0-0"),
+    ]:
+      check parseRange(ramge) == parseRange(expected)
