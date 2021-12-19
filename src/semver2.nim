@@ -15,12 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with semver2.  If not, see <http://www.gnu.org/licenses/>.
 
-import ./semver2/types
-import ./semver2/parse
+import ./semver2/bump
 import ./semver2/compare
+import ./semver2/parse
 import ./semver2/ranges
+import ./semver2/types
 
-export types
-export parse
+export bump
 export compare
+export parse
 export ranges
+export types
