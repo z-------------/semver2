@@ -64,33 +64,24 @@ type
     comparatorSet: ComparatorSet
     curPs, prevPs: parse.ParseState
 
-func has(hp: set[HasPart]; idx: range[0..2]): bool =
-  case idx
-  of 0:
-    hpMajor in hp
-  of 1:
-    hpMinor in hp
-  of 2:
-    hpPatch in hp
-
-func validateXRange(sv: SemVer; hp: set[HasPart]): bool =
+func validateXRange(sv: SemVer; hp: int): bool =
   ## Return false for x-ranges with concrete parts after the first X, e.g. 1.x.3
   var foundX = false
   for i in 0..2:
     if sv[i] == X:
       foundX = true
-    elif foundX and hp.has(i):
+    elif foundX and hp > i:
       return false
   true
 
-func normalizeXRange(sv: SemVer; hp: set[HasPart]): (SemVer, set[HasPart]) =
-  ## Given a normalized x-range semver, replace Xs with empty
+func normalizeXRange(sv: SemVer; hp: int): (SemVer, int) =
+  ## Given a validated x-range semver, replace Xs with empty
   if sv.major == X:
-    (initSemVer(prerelease = sv.prerelease, build = sv.build), {})
+    (initSemVer(prerelease = sv.prerelease, build = sv.build), 0)
   elif sv.minor == X:
-    (initSemVer(sv.major, prerelease = sv.prerelease, build = sv.build), {hpMajor})
+    (initSemVer(sv.major, prerelease = sv.prerelease, build = sv.build), 1)
   elif sv.patch == X:
-    (initSemVer(sv.major, sv.minor, prerelease = sv.prerelease, build = sv.build), {hpMajor, hpMinor})
+    (initSemVer(sv.major, sv.minor, prerelease = sv.prerelease, build = sv.build), 2)
   else:
     (sv, hp)
 
@@ -111,13 +102,13 @@ const RangeParser = peg("ramge", ps: ParseState):
   # X.Y.Z - A.B.C
   hyphen <- >partial * " - " * >partial:
     ps.comparatorSet.add:
-      let curHp = ps.curPs.hasParts
-      if hpMinor notin curHp:
+      let hp = ps.curPs.hasParts
+      if hp < 2:
         ps.curPs.sv = ps.curPs.sv.bumpMajor(setPrereleaseZero = true)
-      elif hpPatch notin curHp:
+      elif hp < 3:
         ps.curPs.sv = ps.curPs.sv.bumpMinor(setPrereleaseZero = true)
       let secondOp =
-        if ps.curPs.hasParts != {hpMajor, hpMinor, hpPatch}:
+        if hp < 3:
           opLt
         else:
           opLte
@@ -131,14 +122,15 @@ const RangeParser = peg("ramge", ps: ParseState):
     validate validateXRange(ps.curPs.sv, ps.curPs.hasParts)
     ps.comparatorSet.add:
       let (sv, hp) = normalizeXRange(ps.curPs.sv, ps.curPs.hasParts)
-      if hp == {}: # *
+      case hp
+      of 0: # *
         @[initComparator(opGte, initSemVer(0, 0, 0))]
-      elif hp == {hpMajor}: # 1.*
+      of 1: # 1.*
         @[
           initComparator(opGte, initSemVer(sv.major, 0, 0)),
           initComparator(opLt, sv.bumpMajor(setPrereleaseZero = true)),
         ]
-      elif hp == {hpMajor, hpMinor}: # 1.2.*
+      of 2: # 1.2.*
         @[
           initComparator(opGte, initSemVer(sv.major, sv.minor, 0)),
           initComparator(opLt, sv.bumpMinor(setPrereleaseZero = true)),
@@ -152,12 +144,12 @@ const RangeParser = peg("ramge", ps: ParseState):
       sv = ps.curPs.sv
       hp = ps.curPs.hasParts
     ps.comparatorSet.add:
-      if hpMinor in hp and hpMajor in hp:
+      if hp >= 2:
         @[
           initComparator(opGte, sv),
           initComparator(opLt, sv.bumpMinor(setPrereleaseZero = true)),
         ]
-      else: # hp == {hpMajor}:
+      else: # hp == 1
         @[
           initComparator(opGte, sv),
           initComparator(opLt, sv.bumpMajor(setPrereleaseZero = true)),
@@ -170,15 +162,15 @@ const RangeParser = peg("ramge", ps: ParseState):
   semVer.major <- >semVer.major:
     swap(ps.prevPs, ps.curPs)
     ps.curPs.sv = SemVer()
-    ps.curPs.hasParts = {}
+    ps.curPs.hasParts = 0
     ps.curPs.sv.major = parseNumPart($1)
-    ps.curPs.hasParts.incl(hpMajor)
+    inc ps.curPs.hasParts
   semVer.minor <- >semVer.minor:
     ps.curPs.sv.minor = parseNumPart($1)
-    ps.curPs.hasParts.incl(hpMinor)
+    inc ps.curPs.hasParts
   semVer.patch <- >semVer.patch:
     ps.curPs.sv.patch = parseNumPart($1)
-    ps.curPs.hasParts.incl(hpPatch)
+    inc ps.curPs.hasParts
   semVer.prereleaseIdent <- >semVer.prereleaseIdent:
     ps.curPs.sv.prerelease.add($1)
   semVer.buildIdent <- >semVer.buildIdent:

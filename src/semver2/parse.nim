@@ -23,13 +23,9 @@ type
   PartialBehavior* = enum
     pbDisallow # partial semvers fail to parse
     pbZero # partial semvers have their empty parts replaced with 0
-  HasPart* = enum
-    hpMajor
-    hpMinor
-    hpPatch
   ParseState = object
     sv*: SemVer
-    hasParts*: set[HasPart]
+    hasParts*: int
 
 const
   X* = -1
@@ -73,39 +69,37 @@ const SemVerParser = peg("semVer", ps: ParseState):
 
   semVer.major <- >semVer.major:
     ps.sv.major = parseNumPart($1)
-    ps.hasParts.incl(hpMajor)
+    inc ps.hasParts
   semVer.minor <- >semVer.minor:
     ps.sv.minor = parseNumPart($1)
-    ps.hasParts.incl(hpMinor)
+    inc ps.hasParts
   semVer.patch <- >semVer.patch:
     ps.sv.patch = parseNumPart($1)
-    ps.hasParts.incl(hpPatch)
+    inc ps.hasParts
 
   semVer.prereleaseIdent <- >semVer.prereleaseIdent:
     ps.sv.prerelease.add($1)
   semVer.buildIdent <- >semVer.buildIdent:
     ps.sv.build.add($1)
 
-proc parseSemVer*(version: string): (SemVer, set[HasPart]) =
+proc parseSemVer*(version: string): (SemVer, int) =
   var ps: ParseState
   let parseResult = SemVerParser.match(version, ps)
   if not parseResult.ok:
     raise newException(ValueError, "invalid SemVer")
-  if ps.hasParts == {}:
+  if ps.hasParts == 0:
     raise newException(ValueError, "empty SemVer")
   if ps.sv.major == X or ps.sv.minor == X or ps.sv.patch == X:
     raise newException(ValueError, "X, x, and * are not allowed in a concrete SemVer")
   (ps.sv, ps.hasParts)
 
-proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, set[HasPart]) =
+proc parseSemVer*(version: string; partialBehavior: PartialBehavior): (SemVer, int) =
   result = parseSemVer(version)
 
   case partialBehavior
   of pbDisallow:
-    if hpMinor notin result[1]:
-      raise newException(ValueError, "invalid SemVer: missing minor")
-    elif hpPatch notin result[1]:
-      raise newException(ValueError, "invalid SemVer: missing patch")
+    if result[1] < 3:
+      raise newException(ValueError, "invalid SemVer: missing minor and/or patch")
   of pbZero:
     discard
 
