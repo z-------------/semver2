@@ -44,3 +44,15 @@ suite "ranges":
       ("1.2", ">=1.2.0 <1.3.0-0"),
     ]:
       check parseRange(ramge) == parseRange(expected)
+
+  test "tilde range examples from node-semver readme":
+    for (ramge, expected) in [
+      ("~1.2.3", ">=1.2.3 <1.3.0-0"),
+      ("~1.2", ">=1.2.0 <1.3.0-0"),
+      ("~1", ">=1.0.0 <2.0.0-0"),
+      ("~0.2.3", ">=0.2.3 <0.3.0-0"),
+      ("~0.2", ">=0.2.0 <0.3.0-0"),
+      ("~0", ">=0.0.0 <1.0.0-0"),
+      ("~1.2.3-beta.2", ">=1.2.3-beta.2 <1.3.0-0"),
+    ]:
+      check parseRange(ramge) == parseRange(expected)

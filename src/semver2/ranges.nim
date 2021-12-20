@@ -101,7 +101,7 @@ const RangeParser = peg("ramge", ps: ParseState):
   comparatorSet <- hyphen | simple * *(' ' * simple) | "":
     ps.r.add(ps.comparatorSet)
     ps.comparatorSet = initComparatorSet()
-  simple <- primitive | xpartial | tilde | caret
+  simple <- primitive | tilde | caret | xpartial
 
   primitive <- >("<=" | '<' | ">=" | '>' | '=') * partial:
     ps.comparatorSet.add:
@@ -147,7 +147,21 @@ const RangeParser = peg("ramge", ps: ParseState):
         @[initComparator(opEq, sv)]
 
   # ~1.2.3
-  tilde <- '~' * >partial
+  tilde <- '~' * >partial:
+    let
+      sv = ps.curPs.sv
+      hp = ps.curPs.hasParts
+    ps.comparatorSet.add:
+      if hpMinor in hp and hpMajor in hp:
+        @[
+          initComparator(opGte, sv),
+          initComparator(opLt, sv.bumpMinor(setPrereleaseZero = true)),
+        ]
+      else: # hp == {hpMajor}:
+        @[
+          initComparator(opGte, sv),
+          initComparator(opLt, sv.bumpMajor(setPrereleaseZero = true)),
+        ]
 
   # ^1.2.3
   caret <- '^' * >partial
