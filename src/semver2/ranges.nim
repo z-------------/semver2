@@ -222,4 +222,7 @@ template contains*(ramge: Range; sv: SemVer): bool =
 template contains*(rangeStr: string; sv: SemVer): bool =
   sv.satisfies(rangeStr)
 
+proc initRange*(rangeStr: string): Range =
+  parseRange(rangeStr)
+
 # TODO: fully implement the range rules
