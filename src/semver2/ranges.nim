@@ -144,17 +144,15 @@ const RangeParser = peg("ramge", ps: ParseState):
     let
       sv = ps.curPs.sv
       hp = ps.curPs.hasParts
-    ps.comparatorSet.add:
-      if hp >= 2:
-        @[
-          initComparator(opGte, sv),
-          initComparator(opLt, sv.bumpMinor(setPrereleaseZero = true)),
-        ]
-      else: # hp == 1
-        @[
-          initComparator(opGte, sv),
-          initComparator(opLt, sv.bumpMajor(setPrereleaseZero = true)),
-        ]
+      bumpIdx =
+        if hp >= 2:
+          1
+        else:
+          0
+    ps.comparatorSet.add(@[
+      initComparator(opGte, sv),
+      initComparator(opLt, sv.bump(bumpIdx, setPrereleaseZero = true)),
+    ])
 
   # ^1.2.3
   caret <- '^' * >partial:
