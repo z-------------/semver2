@@ -22,6 +22,7 @@ import ./bump
 import pkg/npeg
 import std/strutils
 import std/sequtils
+import std/enumerate
 
 # types #
 
@@ -156,7 +157,28 @@ const RangeParser = peg("ramge", ps: ParseState):
         ]
 
   # ^1.2.3
-  caret <- '^' * >partial
+  caret <- '^' * >partial:
+    validate validateXRange(ps.curPs.sv, ps.curPs.hasParts)
+    let
+      (sv, hp) = normalizeXRange(ps.curPs.sv, ps.curPs.hasParts)
+      firstNonZeroIdx = block:
+        var val = -1
+        for (idx, part) in enumerate(sv):
+          if idx >= hp:
+            break
+          if part != 0:
+            val = idx
+            break
+        val
+    let flexIdx =
+      if firstNonZeroIdx == -1:
+        hp - 1
+      else:
+        firstNonZeroIdx
+    ps.comparatorSet.add(@[
+      initComparator(opGte, sv),
+      initComparator(opLt, sv.bump(flexIdx, setPrereleaseZero = true)),
+    ])
 
   partial <- semVer.semVer
   semVer.major <- >semVer.major:

@@ -56,3 +56,18 @@ suite "ranges":
       ("~1.2.3-beta.2", ">=1.2.3-beta.2 <1.3.0-0"),
     ]:
       check initRange(ramge) == initRange(expected)
+
+  test "caret range examples from node-semver readme":
+    for (ramge, expected) in [
+      ("^1.2.3", ">=1.2.3 <2.0.0-0"),
+      ("^0.2.3", ">=0.2.3 <0.3.0-0"),
+      ("^0.0.3", ">=0.0.3 <0.0.4-0"),
+      ("^1.2.3-beta.2", ">=1.2.3-beta.2 <2.0.0-0"),
+      ("^0.0.3-beta", ">=0.0.3-beta <0.0.4-0"),
+      ("^1.2.x", ">=1.2.0 <2.0.0-0"),
+      ("^0.0.x", ">=0.0.0 <0.1.0-0"),
+      ("^0.0", ">=0.0.0 <0.1.0-0"),
+      ("^1.x", ">=1.0.0 <2.0.0-0"),
+      ("^0.x", ">=0.0.0 <1.0.0-0"),
+    ]:
+      check initRange(ramge) == initRange(expected)

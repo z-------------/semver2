@@ -32,4 +32,13 @@ func bumpPatch*(sv: SemVer; setPrereleaseZero = false): SemVer =
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
+func bump*(sv: SemVer; idx: range[0..2]; setPrereleaseZero = false): SemVer =
+  case idx
+  of 0:
+    sv.bumpMajor(setPrereleaseZero)
+  of 1:
+    sv.bumpMinor(setPrereleaseZero)
+  of 2:
+    sv.bumpPatch(setPrereleaseZero)
+
 # TODO: bumpPrerelease, bumpBuild

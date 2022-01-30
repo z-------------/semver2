@@ -59,3 +59,8 @@ func hash*(sv: SemVer): Hash =
   h = h !& sv.prerelease.hash
   # build intentionally excluded
   !$h
+
+iterator items*(sv: SemVer): int =
+  yield sv.major
+  yield sv.minor
+  yield sv.patch
