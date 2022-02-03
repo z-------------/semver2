@@ -84,3 +84,15 @@ suite "ranges":
       check not initSemVer("1.2.3-beta.1").satisfies(ramge)
       check initSemVer("1.2.3-beta.4").satisfies(ramge)
       check not initSemVer("1.2.4-beta.2").satisfies(ramge)
+
+    block:
+      let ramge = initRange("^1.2.3-beta.2")
+      check not initSemVer("1.2.3-beta.1").satisfies(ramge)
+      check initSemVer("1.2.3-beta.4").satisfies(ramge)
+      check not initSemVer("1.2.4-beta.2").satisfies(ramge)
+
+    block:
+      let ramge = initRange("^0.0.3-beta")
+      check not initSemVer("0.0.3-alpha").satisfies(ramge)
+      check initSemVer("0.0.3-pr.2").satisfies(ramge)
+      check not initSemVer("0.0.4-pr.2").satisfies(ramge)
