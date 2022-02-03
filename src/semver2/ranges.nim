@@ -216,12 +216,23 @@ func satisfies(sv: SemVer; c: Comparator): bool =
   of opGt:
     sv > c.version
 
+template coreMatches(a, b: SemVer): bool =
+  a.major == b.major and
+  a.minor == b.minor and
+  a.patch == b.patch
+
 func satisfies(sv: SemVer; comparatorSet: ComparatorSet): bool =
-  result = true
+  let hasPrerelease = sv.prerelease.len > 0
+  var
+    naiveResult = true
+    matchingComparatorHasPrerelease = false
   for c in comparatorSet:
+    if not matchingComparatorHasPrerelease and c.version.coreMatches(sv) and c.version.prerelease.len > 0:
+      matchingComparatorHasPrerelease = true
     if not sv.satisfies(c):
-      result = false
+      naiveResult = false
       break
+  naiveResult and (not hasPrerelease or (hasPrerelease and matchingComparatorHasPrerelease))
 
 func satisfies*(sv: SemVer; ramge: Range): bool =
   if ramge.len == 0:

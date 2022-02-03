@@ -71,3 +71,9 @@ suite "ranges":
       ("^0.x", ">=0.0.0 <1.0.0-0"),
     ]:
       check initRange(ramge) == initRange(expected)
+
+  test "version with prerelease satisfies comparator set only if a comparator with the same core version also has prerelease":
+    let ramge = initRange(">1.2.3-alpha.3")
+    check initSemVer("1.2.3-alpha.7").satisfies(ramge)
+    check not initSemVer("3.4.5-alpha.9").satisfies(ramge)
+    check initSemVer("3.4.5").satisfies(ramge)
