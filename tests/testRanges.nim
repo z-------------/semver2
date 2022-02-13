@@ -7,23 +7,23 @@ suite "ranges":
   test "comparator example from node-semver readme":
     const Range = initRange(">=1.2.7")
     for s in ["1.2.7", "1.2.8", "2.5.3", "1.3.9"]:
-      check initSemVer(s) in Range
+      check initSemver(s) in Range
     for s in ["1.2.6", "1.1.0"]:
-      check initSemVer(s) notin Range
+      check initSemver(s) notin Range
 
   test "comparator set example from node-semver readme":
     const Range = initRange(">=1.2.7 <1.3.0")
     for s in ["1.2.7", "1.2.8", "1.2.99"]:
-      check initSemVer(s) in Range
+      check initSemver(s) in Range
     for s in ["1.2.6", "1.3.0", "1.1.0"]:
-      check initSemVer(s) notin Range
+      check initSemver(s) notin Range
 
-  test "range example from node-semver readme":
+  test "primitive range example from node-semver readme":
     const Range = initRange("1.2.7 || >=1.2.9 <2.0.0")
     for s in ["1.2.7", "1.2.9", "1.4.6"]:
-      check initSemVer(s) in Range
+      check initSemver(s) in Range
     for s in ["1.2.8", "2.0.0"]:
-      check initSemVer(s) notin Range
+      check initSemver(s) notin Range
 
   test "hyphen range examples from node-semver readme":
     for (ramge, expected) in [
@@ -73,26 +73,26 @@ suite "ranges":
       check initRange(ramge) == initRange(expected)
 
   test "version with prerelease satisfies comparator set only if a comparator with the same core version also has prerelease":
-    block:
+    block primitive:
       let ramge = initRange(">1.2.3-alpha.3")
-      check initSemVer("1.2.3-alpha.7").satisfies(ramge)
-      check not initSemVer("3.4.5-alpha.9").satisfies(ramge)
-      check initSemVer("3.4.5").satisfies(ramge)
+      check initSemver("1.2.3-alpha.7").satisfies(ramge)
+      check not initSemver("3.4.5-alpha.9").satisfies(ramge)
+      check initSemver("3.4.5").satisfies(ramge)
 
-    block:
+    block tilde:
       let ramge = initRange("~1.2.3-beta.2")
-      check not initSemVer("1.2.3-beta.1").satisfies(ramge)
-      check initSemVer("1.2.3-beta.4").satisfies(ramge)
-      check not initSemVer("1.2.4-beta.2").satisfies(ramge)
+      check not initSemver("1.2.3-beta.1").satisfies(ramge)
+      check initSemver("1.2.3-beta.4").satisfies(ramge)
+      check not initSemver("1.2.4-beta.2").satisfies(ramge)
 
-    block:
+    block caret:
       let ramge = initRange("^1.2.3-beta.2")
-      check not initSemVer("1.2.3-beta.1").satisfies(ramge)
-      check initSemVer("1.2.3-beta.4").satisfies(ramge)
-      check not initSemVer("1.2.4-beta.2").satisfies(ramge)
+      check not initSemver("1.2.3-beta.1").satisfies(ramge)
+      check initSemver("1.2.3-beta.4").satisfies(ramge)
+      check not initSemver("1.2.4-beta.2").satisfies(ramge)
 
-    block:
+    block caret:
       let ramge = initRange("^0.0.3-beta")
-      check not initSemVer("0.0.3-alpha").satisfies(ramge)
-      check initSemVer("0.0.3-pr.2").satisfies(ramge)
-      check not initSemVer("0.0.4-pr.2").satisfies(ramge)
+      check not initSemver("0.0.3-alpha").satisfies(ramge)
+      check initSemver("0.0.3-pr.2").satisfies(ramge)
+      check not initSemver("0.0.4-pr.2").satisfies(ramge)

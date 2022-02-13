@@ -4,5 +4,6 @@
 !/*
 *.exe
 .nimcache
+profile_results*.txt
 
 .vscode

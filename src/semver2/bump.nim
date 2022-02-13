@@ -17,22 +17,22 @@
 
 import ./types
 
-func bumpMajor*(sv: SemVer; setPrereleaseZero = false): SemVer =
-  result = initSemVer(sv.major + 1)
+func bumpMajor*(sv: Semver; setPrereleaseZero = false): Semver =
+  result = initSemver(sv.major + 1)
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
-func bumpMinor*(sv: SemVer; setPrereleaseZero = false): SemVer =
-  result = initSemVer(sv.major, sv.minor + 1)
+func bumpMinor*(sv: Semver; setPrereleaseZero = false): Semver =
+  result = initSemver(sv.major, sv.minor + 1)
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
-func bumpPatch*(sv: SemVer; setPrereleaseZero = false): SemVer =
-  result = initSemVer(sv.major, sv.minor, sv.patch + 1)
+func bumpPatch*(sv: Semver; setPrereleaseZero = false): Semver =
+  result = initSemver(sv.major, sv.minor, sv.patch + 1)
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
-func bump*(sv: SemVer; idx: range[0..2]; setPrereleaseZero = false): SemVer =
+func bump*(sv: Semver; idx: range[0..2]; setPrereleaseZero = false): Semver =
   case idx
   of 0:
     sv.bumpMajor(setPrereleaseZero)

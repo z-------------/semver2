@@ -17,12 +17,14 @@
 
 import ./types
 import ./compare
-import ./parse {.all.}
 import ./bump
-import pkg/npeg
+import ./private/parse
 import std/strutils
 import std/sequtils
 import std/enumerate
+
+const
+  X = -1
 
 # types #
 
@@ -37,9 +39,12 @@ type
   ComparatorSet = seq[Comparator]
   Comparator = object
     operator: Operator
-    version: SemVer
+    version: Semver
+  LooseSemver = object
+    sv: Semver
+    hp: Natural
 
-func initComparator(operator: Operator; version: SemVer): Comparator =
+func initComparator(operator: Operator; version: Semver): Comparator =
   Comparator(
     operator: operator,
     version: version
@@ -57,153 +62,210 @@ func `$`(cs: ComparatorSet): string =
 func `$`(r: Range): string =
   r.map(`$`).join(" || ")
 
-# parsing #
+template getOr0[T](l: seq[T]; idx: Natural): T =
+  if idx < l.len:
+    l[idx]
+  else:
+    0
 
-type
-  ParseState = object
-    r: Range
-    comparatorSet: ComparatorSet
-    curPs, prevPs: parse.ParseState
+func initLooseSemver(coreParts: seq[int] = @[]; prerelease, build: seq[string] = @[]): LooseSemver =
+  doAssert coreParts.len <= 3
+  LooseSemver(
+    hp: coreParts.len,
+    sv: Semver(
+      major: coreParts.getOr0(0),
+      minor: coreParts.getOr0(1),
+      patch: coreParts.getOr0(2),
+      prerelease: prerelease,
+      build: build
+    )
+  )
 
-func validateXRange(sv: SemVer; hp: int): bool =
+# etc #
+
+func validateXRange(lsv: LooseSemver): bool =
   ## Return false for x-ranges with concrete parts after the first X, e.g. 1.x.3
   var foundX = false
+  let hp = lsv.hp
   for i in 0..2:
-    if sv[i] == X:
+    if lsv.sv[i] == X:
       foundX = true
     elif foundX and hp > i:
       return false
   true
 
-func normalizeXRange(sv: SemVer; hp: int): (SemVer, int) =
+func normalizeXRange(lsv: LooseSemver): LooseSemver =
   ## Given a validated x-range semver, replace Xs with empty
-  if sv.major == X:
-    (initSemVer(prerelease = sv.prerelease, build = sv.build), 0)
-  elif sv.minor == X:
-    (initSemVer(sv.major, prerelease = sv.prerelease, build = sv.build), 1)
-  elif sv.patch == X:
-    (initSemVer(sv.major, sv.minor, prerelease = sv.prerelease, build = sv.build), 2)
+  if lsv.sv.major == X:
+    initLooseSemver(prerelease = lsv.sv.prerelease, build = lsv.sv.build)
+  elif lsv.sv.minor == X:
+    initLooseSemver(@[lsv.sv.major], prerelease = lsv.sv.prerelease, build = lsv.sv.build)
+  elif lsv.sv.patch == X:
+    initLooseSemver(@[lsv.sv.major, lsv.sv.minor], prerelease = lsv.sv.prerelease, build = lsv.sv.build)
   else:
-    (sv, hp)
+    lsv
 
-# parsing doesn't work correctly at compile time if I use reset() instead of explicitly constructing new objects for ComparatorSet, SemVer, and set[HasPart]
-const RangeParser = peg("ramge", ps: ParseState):
-  ramge <- comparatorSet * *(logicalOr * comparatorSet) * !1
-  logicalOr <- *' ' * "||" * *' '
-  comparatorSet <- hyphen | simple * *(' ' * simple) | "":
-    ps.r.add(ps.comparatorSet)
-    ps.comparatorSet = initComparatorSet()
-  simple <- primitive | tilde | caret | xpartial
+# parsing #
 
-  primitive <- >("<=" | '<' | ">=" | '>' | '=') * partial:
-    ps.comparatorSet.add:
-      let op = parseEnum[Operator]($1, default = opEq)
-      @[initComparator(op, ps.curPs.sv)]
+const
+  XChars = {'X', 'x', '*'}
 
-  # X.Y.Z - A.B.C
-  hyphen <- >partial * " - " * >partial:
-    ps.comparatorSet.add:
-      let hp = ps.curPs.hasParts
-      if hp < 2:
-        ps.curPs.sv = ps.curPs.sv.bumpMajor(setPrereleaseZero = true)
-      elif hp < 3:
-        ps.curPs.sv = ps.curPs.sv.bumpMinor(setPrereleaseZero = true)
-      let secondOp =
-        if hp < 3:
-          opLt
-        else:
-          opLte
-      @[
-        initComparator(opGte, ps.prevPs.sv),
-        initComparator(secondOp, ps.curPs.sv),
-      ]
+func parseCharAsString[charSet: static set[char]](s: var ParseStream): R[string] =
+  let c = ?parseChar[charSet](s)
+  ($c).ok
 
-  # 1.2.x
-  xpartial <- partial:
-    validate validateXRange(ps.curPs.sv, ps.curPs.hasParts)
-    ps.comparatorSet.add:
-      let (sv, hp) = normalizeXRange(ps.curPs.sv, ps.curPs.hasParts)
-      case hp
-      of 0: # *
-        @[initComparator(opGte, initSemVer(0, 0, 0))]
-      of 1: # 1.*
-        @[
-          initComparator(opGte, initSemVer(sv.major, 0, 0)),
-          initComparator(opLt, sv.bumpMajor(setPrereleaseZero = true)),
-        ]
-      of 2: # 1.2.*
-        @[
-          initComparator(opGte, initSemVer(sv.major, sv.minor, 0)),
-          initComparator(opLt, sv.bumpMinor(setPrereleaseZero = true)),
-        ]
-      else: # 1.2.3
-        @[initComparator(opEq, sv)]
+func parseLooseNumericIdent(s: var ParseStream): R[string] =
+  s.oneOf(parseCharAsString[XChars], parseNumericIdent)
 
-  # ~1.2.3
-  tilde <- '~' * >partial:
-    let
-      sv = ps.curPs.sv
-      hp = ps.curPs.hasParts
-      bumpIdx =
-        if hp >= 2:
-          1
-        else:
-          0
-    ps.comparatorSet.add(@[
-      initComparator(opGte, sv),
-      initComparator(opLt, sv.bump(bumpIdx, setPrereleaseZero = true)),
-    ])
+func toIntRepr(looseCorePart: string): int =
+  if looseCorePart.contains(XChars):
+    X
+  else:
+    looseCorePart.parseInt
 
-  # ^1.2.3
-  caret <- '^' * >partial:
-    validate validateXRange(ps.curPs.sv, ps.curPs.hasParts)
-    let
-      (sv, hp) = normalizeXRange(ps.curPs.sv, ps.curPs.hasParts)
-      firstNonZeroIdx = block:
-        var val = -1
-        for (idx, part) in enumerate(sv):
-          if idx >= hp:
-            break
-          if part != 0:
-            val = idx
-            break
-        val
-    let flexIdx =
+func parseLooseCore(s: var ParseStream): R[seq[int]] =
+  let repeatResult = s.repeat(parseLooseNumericIdent, parseChar[{'.'}])
+  if repeatResult.isOk:
+    let resultVal = repeatResult.get
+    if resultVal.len <= 3:
+      resultVal.map(toIntRepr).ok
+    else:
+      (typeof result).err(s.pos)
+  else:
+    newSeq[int]().ok
+
+func parseLooseSemver(s: var ParseStream): R[LooseSemver] =
+  let
+    core = ?parseLooseCore(s)
+    prerelease = ?s.maybe(parsePrerelease)
+    build = ?s.maybe(parseBuild)
+    lsv = initLooseSemver(core, prerelease, build)
+  if validateXRange(lsv):
+    result = lsv.normalizeXRange().ok
+
+func parseHyphen(s: var ParseStream): R[ComparatorSet] =
+  let left = (?s.parse(parseLooseSemver)).sv
+  discard ?s.parse(parseString[" - "])
+  let rightRaw = ?s.parse(parseLooseSemver)
+
+  let hp = rightRaw.hp
+  let right =
+    if hp < 2:
+      rightRaw.sv.bumpMajor(setPrereleaseZero = true)
+    elif hp < 3:
+      rightRaw.sv.bumpMinor(setPrereleaseZero = true)
+    else:
+      rightRaw.sv
+  let secondOp =
+    if hp < 3:
+      opLt
+    else:
+      opLte
+
+  @[
+    initComparator(opGte, left),
+    initComparator(secondOp, right),
+  ].ok
+
+func parsePrimitive(s: var ParseStream): R[ComparatorSet] =
+  let
+    opStr = ?s.oneOf(parseString["<="], parseString["<"], parseString[">="], parseString[">"], parseString["="])
+    op = parseEnum[Operator](opStr)
+    sv = ?s.parse(parseSemverInternal)
+  @[initComparator(op, sv)].ok
+
+func parseTilde(s: var ParseStream): R[ComparatorSet] =
+  discard ?s.parse(parseChar[{'~'}])
+  let
+    lsv = ?s.parse(parseLooseSemver)
+    bumpIdx =
+      if lsv.hp >= 2:
+        1
+      else:
+        0
+  @[
+    initComparator(opGte, lsv.sv),
+    initComparator(opLt, lsv.sv.bump(bumpIdx, setPrereleaseZero = true)),
+  ].ok
+
+func parseCaret(s: var ParseStream): R[ComparatorSet] =
+  discard ?s.parse(parseChar[{'^'}])
+  let
+    lsv = ?s.parse(parseLooseSemver)
+    firstNonZeroIdx = block:
+      var val = -1
+      for (idx, part) in enumerate(lsv.sv):
+        if idx >= lsv.hp:
+          break
+        if part != 0:
+          val = idx
+          break
+      val
+    flexIdx =
       if firstNonZeroIdx == -1:
-        hp - 1
+        lsv.hp - 1
       else:
         firstNonZeroIdx
-    ps.comparatorSet.add(@[
-      initComparator(opGte, sv),
-      initComparator(opLt, sv.bump(flexIdx, setPrereleaseZero = true)),
-    ])
+  @[
+    initComparator(opGte, lsv.sv),
+    initComparator(opLt, lsv.sv.bump(flexIdx, setPrereleaseZero = true)),
+  ].ok
 
-  partial <- semVer.semVer
-  semVer.major <- >semVer.major:
-    swap(ps.prevPs, ps.curPs)
-    ps.curPs.sv = SemVer()
-    ps.curPs.hasParts = 0
-    ps.curPs.sv.major = parseNumPart($1)
-    inc ps.curPs.hasParts
-  semVer.minor <- >semVer.minor:
-    ps.curPs.sv.minor = parseNumPart($1)
-    inc ps.curPs.hasParts
-  semVer.patch <- >semVer.patch:
-    ps.curPs.sv.patch = parseNumPart($1)
-    inc ps.curPs.hasParts
-  semVer.prereleaseIdent <- >semVer.prereleaseIdent:
-    ps.curPs.sv.prerelease.add($1)
-  semVer.buildIdent <- >semVer.buildIdent:
-    ps.curPs.sv.build.add($1)
+func parseXrange(s: var ParseStream): R[ComparatorSet] =
+  let lsv = ?s.parse(parseLooseSemver)
+  case lsv.hp
+  of 0: # *
+    @[initComparator(opGte, initSemver(0, 0, 0))].ok
+  of 1: # 1.*
+    @[
+      initComparator(opGte, initSemver(lsv.sv.major, 0, 0)),
+      initComparator(opLt, lsv.sv.bumpMajor(setPrereleaseZero = true)),
+    ].ok
+  of 2: # 1.2.*
+    @[
+      initComparator(opGte, initSemver(lsv.sv.major, lsv.sv.minor, 0)),
+      initComparator(opLt, lsv.sv.bumpMinor(setPrereleaseZero = true)),
+    ].ok
+  else: # 1.2.3
+    @[initComparator(opEq, lsv.sv)].ok
 
-proc parseRange(rangeStr: string): Range =
-  var ps: ParseState
-  let parseResult = RangeParser.match(rangeStr, ps)
-  if not parseResult.ok:
-    raise newException(ValueError, "invalid range")
-  ps.r
+func parseSimple(s: var ParseStream): R[ComparatorSet] =
+  result = s.oneOf(parsePrimitive, parseTilde, parseCaret, parseXrange)
 
-func satisfies(sv: SemVer; c: Comparator): bool =
+func parseSimpleSet(s: var ParseStream): R[ComparatorSet] =
+  var resultVal: ComparatorSet
+  let comparators = ?s.repeat(parseSimple, parseChar[{' '}])
+  for c in comparators:
+    resultVal.add(c)
+  resultVal.ok
+
+func parseComparatorSet(s: var ParseStream): R[ComparatorSet] =
+  s.oneOf(parseHyphen, parseSimpleSet)
+
+func parseLogicalOr(s: var ParseStream): R[void] =
+  discard ?s.many(parseChar[{' '}])
+  discard ?s.parse(parseString["||"])
+  discard ?s.many(parseChar[{' '}])
+  result.ok
+
+func parseRange(s: var ParseStream): R[Range] =
+  let ramge = ?s.repeat(parseComparatorSet, parseLogicalOr)
+  if s.isAtEnd:
+    ramge.ok
+  else:
+    (typeof result).err(s.pos)
+
+func parseRange(rangeStr: sink string): Range =
+  var ps = initParseStream(rangeStr)
+  let parseResult = parseRange(ps)
+  if parseResult.isOk:
+    parseResult.value
+  else:
+    raise newException(ValueError, "Invalid range")
+
+# ... #
+
+func satisfies(sv: Semver; c: Comparator): bool =
   case c.operator
   of opEq:
     sv == c.version
@@ -216,12 +278,12 @@ func satisfies(sv: SemVer; c: Comparator): bool =
   of opGt:
     sv > c.version
 
-template coreMatches(a, b: SemVer): bool =
+template coreMatches(a, b: Semver): bool =
   a.major == b.major and
   a.minor == b.minor and
   a.patch == b.patch
 
-func satisfies(sv: SemVer; comparatorSet: ComparatorSet): bool =
+func satisfies(sv: Semver; comparatorSet: ComparatorSet): bool =
   let hasPrerelease = sv.prerelease.len > 0
   var
     naiveResult = true
@@ -234,7 +296,7 @@ func satisfies(sv: SemVer; comparatorSet: ComparatorSet): bool =
       break
   naiveResult and (not hasPrerelease or (hasPrerelease and matchingComparatorHasPrerelease))
 
-func satisfies*(sv: SemVer; ramge: Range): bool =
+func satisfies*(sv: Semver; ramge: Range): bool =
   if ramge.len == 0:
     return true
   else:
@@ -243,17 +305,15 @@ func satisfies*(sv: SemVer; ramge: Range): bool =
         result = true
         break
 
-proc satisfies*(sv: SemVer; rangeStr: string): bool =
+func satisfies*(sv: Semver; rangeStr: string): bool =
   let ramge = parseRange(rangeStr)
   sv.satisfies(ramge)
 
-template contains*(ramge: Range; sv: SemVer): bool =
+template contains*(ramge: Range; sv: Semver): bool =
   sv.satisfies(ramge)
 
-template contains*(rangeStr: string; sv: SemVer): bool =
+template contains*(rangeStr: string; sv: Semver): bool =
   sv.satisfies(rangeStr)
 
-proc initRange*(rangeStr: string): Range =
+func initRange*(rangeStr: string): Range =
   parseRange(rangeStr)
-
-# TODO: fully implement the range rules

@@ -19,15 +19,15 @@ from std/strutils import join
 import std/hashes
 
 type
-  SemVer* = object
+  Semver* = object
     major*: int
     minor*: int
     patch*: int
     prerelease*: seq[string]
     build*: seq[string]
 
-func initSemVer*(major, minor, patch = 0.Natural; prerelease, build = newSeq[string]()): SemVer =
-  SemVer(
+func initSemver*(major, minor, patch = 0.Natural; prerelease, build = newSeq[string]()): Semver =
+  Semver(
     major: major,
     minor: minor,
     patch: patch,
@@ -35,7 +35,7 @@ func initSemVer*(major, minor, patch = 0.Natural; prerelease, build = newSeq[str
     build: build
   )
 
-func `[]`*(sv: SemVer; idx: range[0..2]): int =
+func `[]`*(sv: Semver; idx: range[0..2]): int =
   case idx
   of 0:
     sv.major
@@ -44,14 +44,14 @@ func `[]`*(sv: SemVer; idx: range[0..2]): int =
   of 2:
     sv.patch
 
-func `$`*(sv: SemVer): string =
+func `$`*(sv: Semver): string =
   result = $sv.major & '.' & $sv.minor & '.' & $sv.patch
   if sv.prerelease.len > 0:
     result.add('-' & sv.prerelease.join("."))
   if sv.build.len > 0:
     result.add('+' & sv.build.join("."))
 
-func hash*(sv: SemVer): Hash =
+func hash*(sv: Semver): Hash =
   var h: Hash
   h = h !& sv.major.hash
   h = h !& sv.minor.hash
@@ -60,7 +60,7 @@ func hash*(sv: SemVer): Hash =
   # build intentionally excluded
   !$h
 
-iterator items*(sv: SemVer): int =
+iterator items*(sv: Semver): int =
   yield sv.major
   yield sv.minor
   yield sv.patch

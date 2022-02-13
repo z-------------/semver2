@@ -27,7 +27,7 @@ func isOnlyDigits(s: string): bool =
       return false
   true
 
-func compare(a, b: SemVer): int =
+func compare(a, b: Semver): int =
   if a.major != b.major:
     a.major - b.major
   elif a.minor != b.minor:
@@ -57,11 +57,11 @@ func compare(a, b: SemVer): int =
           return diff
     a.prerelease.len - b.prerelease.len
 
-func `<`*(a, b: SemVer): bool =
+func `<`*(a, b: Semver): bool =
   compare(a, b) < 0
 
-func `<=`*(a, b: SemVer): bool =
+func `<=`*(a, b: Semver): bool =
   compare(a, b) <= 0
 
-func `==`*(a, b: SemVer): bool =
+func `==`*(a, b: Semver): bool =
   compare(a, b) == 0
