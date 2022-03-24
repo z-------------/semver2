@@ -35,6 +35,9 @@ func initSemver*(major, minor, patch = 0.Natural; prerelease, build = newSeq[str
     build: build
   )
 
+template initSemver*(parts: (int, int, int, seq[string], seq[string])): Semver =
+  initSemver(parts[0], parts[1], parts[2], parts[3], parts[4])
+
 func `[]`*(sv: Semver; idx: range[0..2]): int =
   case idx
   of 0:
