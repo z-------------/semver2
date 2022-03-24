@@ -50,9 +50,6 @@ func initComparator(operator: Operator; version: Semver): Comparator =
     version: version
   )
 
-func initComparatorSet(): ComparatorSet =
-  newSeq[Comparator]()
-
 func `$`(c: Comparator): string =
   $c.operator & $c.version
 
