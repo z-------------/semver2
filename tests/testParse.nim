@@ -8,6 +8,7 @@ suite "parsing":
   test "parse version":
     for (version, expected) in [
       ("1.2.3-alpha.1.2+build.11.e0f985a", (1, 2, 3, @["alpha", "1", "2"], @["build", "11", "e0f985a"])),
+      ("11.222.3333-alpha.12.23+build.11.e0f985a", (11, 222, 3333, @["alpha", "12", "23"], @["build", "11", "e0f985a"])),
       ("1.2.3-alpha-1+build.11.e0f985a", (1, 2, 3, @["alpha-1"], @["build", "11", "e0f985a"])),
       ("0.1.0-0f", (0, 1, 0, @["0f"], @[])),
       ("0.0.0-0foo.1", (0, 0, 0, @["0foo", "1"], @[])),
@@ -22,7 +23,17 @@ suite "parsing":
     ]:
       check initSemver(version) == initSemver(expected)
 
-  test "raise value error for zero-prefixed versions":
-    for version in ["01.2.3", "1.02.3", "1.2.03"]:
+  test "raise value error for invalid versions":
+    const InvalidVersionStrs = [
+      # leading 0
+      "01.2.3",
+      "1.02.3",
+      "1.2.03",
+      # non-digits
+      "a.2.3",
+      "1.b.3",
+      "1.2.c",
+    ]
+    for version in InvalidVersionStrs:
       expect ValueError:
         discard initSemver(version)

@@ -96,3 +96,13 @@ suite "ranges":
       check not initSemver("0.0.3-alpha").satisfies(ramge)
       check initSemver("0.0.3-pr.2").satisfies(ramge)
       check not initSemver("0.0.4-pr.2").satisfies(ramge)
+
+  test "raise value error for invalid ranges":
+    const InvalidRangeStrs = [
+      # non-final X
+      "x.2.3",
+      "1.x.3",
+    ]
+    for version in InvalidRangeStrs:
+      expect ValueError:
+        discard initSemver(version)
