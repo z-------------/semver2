@@ -4,8 +4,8 @@ import std/tables
 
 import semver2
 
-template tail[T](l: seq[T]): seq[T] =
-  l[1..l.high]
+template tail[T](l: openArray[T]): untyped =
+  l.toOpenArray(1, l.high)
 
 suite "comparison":
   test "example from semver.org":
