@@ -4,7 +4,7 @@ import std/tables
 
 import semver2
 
-template tail[T](l: openArray[T]): untyped =
+template tail[T](l: openArray[T]): openArray[T] =
   l.toOpenArray(1, l.high)
 
 suite "comparison":
