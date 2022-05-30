@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.3"
+version       = "0.0.4"
 author        = "Zack Guard"
 description   = "SemVer parsing, comparison, and ranges"
 license       = "GPL-3.0-or-later"
@@ -15,4 +15,8 @@ requires "result >= 0.3.0"
 
 task tag, "Create a git annotated tag with the current nimble version":
   let tagName = "v" & version
-  exec "git tag -a " & tagName & " -m " & tagName
+  try:
+    exec "git tag -a " & tagName & " -m " & tagName
+  except OsError as e:
+    echo e.msg
+    quit(QuitFailure)
