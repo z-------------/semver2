@@ -1,7 +1,6 @@
 import std/unittest
 
 import semver2
-import ../src/semver2/ranges
 
 suite "ranges":
   test "comparator example from node-semver readme":
