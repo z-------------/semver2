@@ -56,7 +56,7 @@ func `$`(c: Comparator): string =
 func `$`(cs: ComparatorSet): string =
   cs.map(`$`).join(" ")
 
-func `$`(r: Range): string =
+func `$`*(r: Range): string =
   r.map(`$`).join(" || ")
 
 template getOr0[T](l: seq[T]; idx: Natural): T =
