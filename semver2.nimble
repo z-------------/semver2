@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.4"
+version       = "0.0.5"
 author        = "Zack Guard"
 description   = "SemVer parsing, comparison, and ranges"
 license       = "GPL-3.0-or-later"
