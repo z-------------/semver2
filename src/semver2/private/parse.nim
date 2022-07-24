@@ -168,6 +168,26 @@ func parseCore*(s: var ParseStream): R[array[3, int]] =
   else:
     (typeof result).err(s.pos)
 
+func parseCoreCoerce*(s: var ParseStream): R[tuple[core: array[3, int]; leftovers: string]] =
+  ## Leniently parse the core.
+  ## Cores with fewer than three numbers are right-padded with zeros.
+  ## Cores with more than three numbers have their additional parts joined by '.' and returned as `leftovers`.
+  var
+    core = ?s.repeat(parseNumericIdent, parseChar[{'.'}])
+    leftovers = ""
+  if core.len < 3:
+    for _ in 0 ..< 3 - core.len:
+      core.add("0")
+  elif core.len > 3:
+    let leftoverParts = core[3..^1]
+    core.setLen(3)
+    leftovers = leftoverParts.join(".")
+  ([
+    core[0].parseInt,
+    core[1].parseInt,
+    core[2].parseInt,
+  ], leftovers).ok
+
 # prerelease
 
 func parsePrereleaseIdent*(s: var ParseStream): R[string] =
@@ -195,8 +215,24 @@ func parseSemverInternal*(s: var ParseStream): R[Semver] =
     build = ?s.maybe(parseBuild)
   initSemver(core[0], core[1], core[2], prerelease, build).ok
 
-func parseSemver*(s: var ParseStream): R[Semver] =
-  let sv = ?s.parse(parseSemverInternal)
+func parseSemverCoerceInternal*(s: var ParseStream): R[Semver] =
+  let
+    (core, leftovers) = ?parseCoreCoerce(s)
+    prerelease = ?s.maybe(parsePrerelease)
+    buildPrefix =
+      if leftovers != "":
+        @[leftovers]
+      else:
+        @[]
+    build = buildPrefix & ?s.maybe(parseBuild)
+  initSemver(core[0], core[1], core[2], prerelease, build).ok
+
+func parseSemver*(s: var ParseStream; coerce: static[bool] = false): R[Semver] =
+  let sv =
+    when coerce:
+      ?s.parse(parseSemverCoerceInternal)
+    else:
+      ?s.parse(parseSemverInternal)
   if s.isAtEnd:
     sv.ok
   else:

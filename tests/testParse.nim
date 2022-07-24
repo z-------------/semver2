@@ -43,3 +43,16 @@ suite "parsing":
     for version in InvalidVersionStrs:
       expect ValueError:
         discard initSemver(version)
+
+  test "parse version with coercion":
+    for (version, expected) in [
+      ("1.2.3.4-alpha.1.2+build.11.e0f985a", (1, 2, 3, @["alpha", "1", "2"], @["4", "build", "11", "e0f985a"])),
+      ("1.2-alpha-1+build.11.e0f985a", (1, 2, 0, @["alpha-1"], @["build", "11", "e0f985a"])),
+      ("1-alpha-1+build.11.e0f985a", (1, 0, 0, @["alpha-1"], @["build", "11", "e0f985a"])),
+      ("0.1-0f", (0, 1, 0, @["0f"], @[])),
+      ("0.1.0.2-0f", (0, 1, 0, @["0f"], @["2"])),
+      ("0-0foo.1", (0, 0, 0, @["0foo", "1"], @[])),
+      ("0.0-0foo.1+build.1", (0, 0, 0, @["0foo", "1"], @["build", "1"])),
+    ]:
+      check initSemver(version, coerce = true) == initSemver(expected)
+      check initSemver(version.addJunk, coerce = true) == initSemver(expected)

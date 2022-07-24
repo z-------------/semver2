@@ -19,9 +19,11 @@ import ./types
 import ./private/parse
 import std/strutils
 
-func initSemver*(version: string): Semver =
+func initSemver*(version: string; coerce: static[bool] = false): Semver =
+  when coerce:
+    let version = clean(version)
   var ps = initParseStream(version)
-  let parseResult = parseSemver(ps)
+  let parseResult = parseSemver(ps, coerce)
   if parseResult.isOk:
     parseResult.value
   else:
