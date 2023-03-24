@@ -40,16 +40,18 @@ func cmp*(a, b: Semver): int =
     1
   else:
     for i in 0..min(a.prerelease.high, b.prerelease.high):
+      template aPr: auto = a.prerelease[i]
+      template bPr: auto = b.prerelease[i]
       let
-        aPr = a.prerelease[i]
-        bPr = b.prerelease[i]
-      if isOnlyDigits(aPr) and isOnlyDigits(bPr):
+        aPrIsOnlyDigits = aPr.isOnlyDigits
+        bPrIsOnlyDigits = bPr.isOnlyDigits
+      if aPrIsOnlyDigits and bPrIsOnlyDigits:
         let diff = parseInt(aPr) - parseInt(bPr)
         if diff != 0:
           return diff
-      elif isOnlyDigits(aPr) and not isOnlyDigits(bPr):
+      elif aPrIsOnlyDigits and not bPrIsOnlyDigits:
         return -1
-      elif not isOnlyDigits(aPr) and isOnlyDigits(bPr):
+      elif not aPrIsOnlyDigits and bPrIsOnlyDigits:
         return 1
       else:
         let diff = cmp(aPr, bPr)
