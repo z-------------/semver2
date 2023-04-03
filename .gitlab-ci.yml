@@ -1,14 +1,26 @@
+before_script:
+  - curl https://nim-lang.org/choosenim/init.sh -sSf | CHOOSENIM_CHOOSE_VERSION=$NIM_VERSION sh -s -- -y
+  - PATH=/root/.nimble/bin:$PATH
+
 test:
   stage: test
-  only:
-    - master
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
   parallel:
     matrix:
       - NIM_VERSION:
         - stable
         - 1.6.0
-  before_script:
-    - curl https://nim-lang.org/choosenim/init.sh -sSf | CHOOSENIM_CHOOSE_VERSION=$NIM_VERSION sh -s -- -y
-    - PATH=/root/.nimble/bin:$PATH
   script:
     - nimble -y test
+
+pages:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+  script:
+    - nimble -y doc --project --git.url:"$CI_PROJECT_URL" --git.commit:"$CI_COMMIT_SHA" --git.devel:"$CI_DEFAULT_BRANCH" --outdir:public src/"$CI_PROJECT_NAME"
+    - cp public/"$CI_PROJECT_NAME".html public/index.html
+  artifacts:
+    paths:
+      - public
