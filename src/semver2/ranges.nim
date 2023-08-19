@@ -65,7 +65,7 @@ template getOr0[T](l: seq[T]; idx: Natural): T =
   else:
     0
 
-func initLooseSemver(coreParts: seq[int] = @[]; prerelease, build: seq[string] = @[]): LooseSemver =
+func initLooseSemver(coreParts: seq[int] = @[]; prerelease = newSeq[string](); build = newSeq[string]()): LooseSemver =
   doAssert coreParts.len <= 3
   LooseSemver(
     hp: coreParts.len,

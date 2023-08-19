@@ -26,7 +26,7 @@ type
     prerelease*: seq[string]
     build*: seq[string]
 
-func initSemver*(major, minor, patch = 0.Natural; prerelease, build = newSeq[string]()): Semver =
+func initSemver*(major = 0.Natural; minor = 0.Natural; patch = 0.Natural; prerelease = newSeq[string](); build = newSeq[string]()): Semver =
   Semver(
     major: major,
     minor: minor,
