@@ -5,5 +5,8 @@
 *.exe
 .nimcache
 profile_results*.txt
+bench
+htmldocs
+/nim.cfg
 
 .vscode

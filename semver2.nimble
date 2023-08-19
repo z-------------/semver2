@@ -9,7 +9,7 @@ srcDir        = "src"
 # Dependencies
 
 requires "nim >= 1.6.0"
-requires "result >= 0.3.0"
+requires "results >= 0.3.0"
 
 # Tasks
 
