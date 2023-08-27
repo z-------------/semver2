@@ -17,6 +17,8 @@
 
 import ./types
 
+{.push raises: [].}
+
 func bumpMajor*(sv: Semver; setPrereleaseZero = false): Semver =
   result = initSemver(sv.major + 1)
   if setPrereleaseZero:
@@ -32,13 +34,15 @@ func bumpPatch*(sv: Semver; setPrereleaseZero = false): Semver =
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
-func bump*(sv: Semver; idx: range[0..2]; setPrereleaseZero = false): Semver =
-  case idx
-  of 0:
+func bump*(sv: Semver; part: SemverPart; setPrereleaseZero = false): Semver =
+  case part
+  of Major:
     sv.bumpMajor(setPrereleaseZero)
-  of 1:
+  of Minor:
     sv.bumpMinor(setPrereleaseZero)
-  of 2:
+  of Patch:
     sv.bumpPatch(setPrereleaseZero)
 
 # TODO: bumpPrerelease, bumpBuild
+
+{.pop raises.}

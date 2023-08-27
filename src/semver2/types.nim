@@ -19,6 +19,10 @@ from std/strutils import join, strip
 import std/hashes
 
 type
+  SemverPart* = enum
+    Major = 0
+    Minor = 1
+    Patch = 2
   Semver* = object
     major*: int
     minor*: int

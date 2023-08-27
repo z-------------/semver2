@@ -175,14 +175,14 @@ func parseTilde(s: var ParseStream): R[ComparatorSet] =
   discard ?s.parse(parseChar[{'~'}])
   let
     lsv = ?s.parse(parseLooseSemver)
-    bumpIdx =
+    bumpPart =
       if lsv.hp >= 2:
-        1
+        Minor
       else:
-        0
+        Major
   @[
     initComparator(opGte, lsv.sv),
-    initComparator(opLt, lsv.sv.bump(bumpIdx, setPrereleaseZero = true)),
+    initComparator(opLt, lsv.sv.bump(bumpPart, setPrereleaseZero = true)),
   ].ok
 
 func parseCaret(s: var ParseStream): R[ComparatorSet] =
@@ -205,7 +205,7 @@ func parseCaret(s: var ParseStream): R[ComparatorSet] =
         firstNonZeroIdx
   @[
     initComparator(opGte, lsv.sv),
-    initComparator(opLt, lsv.sv.bump(flexIdx, setPrereleaseZero = true)),
+    initComparator(opLt, lsv.sv.bump(SemverPart(flexIdx), setPrereleaseZero = true)),
   ].ok
 
 func parseXrange(s: var ParseStream): R[ComparatorSet] =
