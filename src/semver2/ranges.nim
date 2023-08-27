@@ -312,5 +312,5 @@ template contains*(ramge: Range; sv: Semver): bool =
 template contains*(rangeStr: string; sv: Semver): bool =
   sv.satisfies(rangeStr)
 
-func initRange*(rangeStr: string): Range =
+func init*(_: typedesc[Range]; rangeStr: string): Range =
   parseRange(rangeStr)
