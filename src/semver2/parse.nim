@@ -19,7 +19,7 @@ import ./types
 import ./private/parse
 import std/strutils
 
-func initSemver*(version: string; coerce: static[bool] = false): Semver =
+func init*(_: typedesc[Semver]; version: string; coerce: static[bool] = false): Semver =
   when coerce:
     let version = clean(version)
   var ps = initParseStream(version)

@@ -30,17 +30,17 @@ type
     prerelease*: seq[string]
     build*: seq[string]
 
-func initSemver*(major = 0.Natural; minor = 0.Natural; patch = 0.Natural; prerelease = newSeq[string](); build = newSeq[string]()): Semver =
+func init*(_: typedesc[Semver]; major = 0.Natural; minor = 0.Natural; patch = 0.Natural; prerelease = newSeq[string](); build = newSeq[string]()): Semver =
   Semver(
     major: major,
     minor: minor,
     patch: patch,
     prerelease: prerelease,
-    build: build
+    build: build,
   )
 
-template initSemver*(parts: (int, int, int, seq[string], seq[string])): Semver =
-  initSemver(parts[0], parts[1], parts[2], parts[3], parts[4])
+func init*(_: typedesc[Semver]; parts: (int, int, int, seq[string], seq[string])): Semver =
+  Semver.init(parts[0], parts[1], parts[2], parts[3], parts[4])
 
 func `[]`*(sv: Semver; idx: range[0..2]): int =
   case idx

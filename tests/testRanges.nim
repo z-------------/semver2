@@ -6,23 +6,23 @@ suite "ranges":
   test "comparator example from node-semver readme":
     const Range = initRange(">=1.2.7")
     for s in ["1.2.7", "1.2.8", "2.5.3", "1.3.9"]:
-      check initSemver(s) in Range
+      check Semver.init(s) in Range
     for s in ["1.2.6", "1.1.0"]:
-      check initSemver(s) notin Range
+      check Semver.init(s) notin Range
 
   test "comparator set example from node-semver readme":
     const Range = initRange(">=1.2.7 <1.3.0")
     for s in ["1.2.7", "1.2.8", "1.2.99"]:
-      check initSemver(s) in Range
+      check Semver.init(s) in Range
     for s in ["1.2.6", "1.3.0", "1.1.0"]:
-      check initSemver(s) notin Range
+      check Semver.init(s) notin Range
 
   test "primitive range example from node-semver readme":
     const Range = initRange("1.2.7 || >=1.2.9 <2.0.0")
     for s in ["1.2.7", "1.2.9", "1.4.6"]:
-      check initSemver(s) in Range
+      check Semver.init(s) in Range
     for s in ["1.2.8", "2.0.0"]:
-      check initSemver(s) notin Range
+      check Semver.init(s) notin Range
 
   test "hyphen range examples from node-semver readme":
     for (ramge, expected) in [
@@ -74,27 +74,27 @@ suite "ranges":
   test "version with prerelease satisfies comparator set only if a comparator with the same core version also has prerelease":
     block primitive:
       let ramge = initRange(">1.2.3-alpha.3")
-      check initSemver("1.2.3-alpha.7").satisfies(ramge)
-      check not initSemver("3.4.5-alpha.9").satisfies(ramge)
-      check initSemver("3.4.5").satisfies(ramge)
+      check Semver.init("1.2.3-alpha.7").satisfies(ramge)
+      check not Semver.init("3.4.5-alpha.9").satisfies(ramge)
+      check Semver.init("3.4.5").satisfies(ramge)
 
     block tilde:
       let ramge = initRange("~1.2.3-beta.2")
-      check not initSemver("1.2.3-beta.1").satisfies(ramge)
-      check initSemver("1.2.3-beta.4").satisfies(ramge)
-      check not initSemver("1.2.4-beta.2").satisfies(ramge)
+      check not Semver.init("1.2.3-beta.1").satisfies(ramge)
+      check Semver.init("1.2.3-beta.4").satisfies(ramge)
+      check not Semver.init("1.2.4-beta.2").satisfies(ramge)
 
     block caret:
       let ramge = initRange("^1.2.3-beta.2")
-      check not initSemver("1.2.3-beta.1").satisfies(ramge)
-      check initSemver("1.2.3-beta.4").satisfies(ramge)
-      check not initSemver("1.2.4-beta.2").satisfies(ramge)
+      check not Semver.init("1.2.3-beta.1").satisfies(ramge)
+      check Semver.init("1.2.3-beta.4").satisfies(ramge)
+      check not Semver.init("1.2.4-beta.2").satisfies(ramge)
 
     block caret:
       let ramge = initRange("^0.0.3-beta")
-      check not initSemver("0.0.3-alpha").satisfies(ramge)
-      check initSemver("0.0.3-pr.2").satisfies(ramge)
-      check not initSemver("0.0.4-pr.2").satisfies(ramge)
+      check not Semver.init("0.0.3-alpha").satisfies(ramge)
+      check Semver.init("0.0.3-pr.2").satisfies(ramge)
+      check not Semver.init("0.0.4-pr.2").satisfies(ramge)
 
   test "raise value error for invalid ranges":
     const InvalidRangeStrs = [
@@ -104,4 +104,4 @@ suite "ranges":
     ]
     for version in InvalidRangeStrs:
       expect ValueError:
-        discard initSemver(version)
+        discard Semver.init(version)

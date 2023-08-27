@@ -20,17 +20,17 @@ import ./types
 {.push raises: [].}
 
 func bumpMajor*(sv: Semver; setPrereleaseZero = false): Semver =
-  result = initSemver(sv.major + 1)
+  result = Semver.init(sv.major + 1)
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
 func bumpMinor*(sv: Semver; setPrereleaseZero = false): Semver =
-  result = initSemver(sv.major, sv.minor + 1)
+  result = Semver.init(sv.major, sv.minor + 1)
   if setPrereleaseZero:
     result.prerelease = @["0"]
 
 func bumpPatch*(sv: Semver; setPrereleaseZero = false): Semver =
-  result = initSemver(sv.major, sv.minor, sv.patch + 1)
+  result = Semver.init(sv.major, sv.minor, sv.patch + 1)
   if setPrereleaseZero:
     result.prerelease = @["0"]
 

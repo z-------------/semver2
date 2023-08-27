@@ -21,9 +21,9 @@ suite "comparison":
     ]
     block: # forwards
       let versionStrs = VersionStrs
-      var prevVersion = initSemver(versionStrs[0])
+      var prevVersion = Semver.init(versionStrs[0])
       for versionStr in versionStrs.tail:
-        let version = initSemver(versionStr)
+        let version = Semver.init(versionStr)
         check not (prevVersion == version)
         check prevVersion != version
         check prevVersion < version
@@ -33,9 +33,9 @@ suite "comparison":
         prevVersion = version
     block: # backwards
       let versionStrs = VersionStrs.reversed
-      var prevVersion = initSemver(versionStrs[0])
+      var prevVersion = Semver.init(versionStrs[0])
       for versionStr in versionStrs.tail:
-        let version = initSemver(versionStr)
+        let version = Semver.init(versionStr)
         check not (prevVersion == version)
         check prevVersion != version
         check prevVersion > version
@@ -45,7 +45,7 @@ suite "comparison":
         prevVersion = version
     block: # self-comparison
       for versionStr in VersionStrs:
-        let version = initSemver(versionStr)
+        let version = Semver.init(versionStr)
         check version == version
         check not (version != version)
         check not (version > version)
@@ -55,23 +55,23 @@ suite "comparison":
 
   # from https://github.com/python-semver/python-semver/blob/b0f854da3424ed73231e4f55bac36c86b2c82987/tests/test_parsing.py
   test "version is hashable":
-    let version = initSemver("1.2.3-alpha.1.2+build.11.e0f985a")
+    let version = Semver.init("1.2.3-alpha.1.2+build.11.e0f985a")
     var t: Table[Semver, bool]
     t[version] = true
 
   # from https://github.com/python-semver/python-semver/blob/b0f854da3424ed73231e4f55bac36c86b2c82987/tests/test_parsing.py
   test "equal versions are equal and have equal hashes":
     let
-      a = initSemver("1.2.3-alpha.1.2+build.11.e0f985a")
-      b = initSemver("1.2.3-alpha.1.2+build.22.a589f0e")
+      a = Semver.init("1.2.3-alpha.1.2+build.11.e0f985a")
+      b = Semver.init("1.2.3-alpha.1.2+build.22.a589f0e")
     check a == b
     check not (a != b)
     check a.hash == b.hash
 
   test "non-equal versions are non-equal and have non-equal hashes":
     let
-      a = initSemver("1.2.3-alpha.1.2+build.11.e0f985a")
-      b = initSemver("3.2.1-alpha.1.2+build.11.e0f985a")
+      a = Semver.init("1.2.3-alpha.1.2+build.11.e0f985a")
+      b = Semver.init("3.2.1-alpha.1.2+build.11.e0f985a")
     check not (a == b)
     check a != b
     check a.hash != b.hash

@@ -213,7 +213,7 @@ func parseSemverInternal*(s: var ParseStream): R[Semver] =
     core = ?parseCore(s)
     prerelease = ?s.maybe(parsePrerelease)
     build = ?s.maybe(parseBuild)
-  initSemver(core[0], core[1], core[2], prerelease, build).ok
+  Semver.init(core[0], core[1], core[2], prerelease, build).ok
 
 func parseSemverCoerceInternal*(s: var ParseStream): R[Semver] =
   let
@@ -225,7 +225,7 @@ func parseSemverCoerceInternal*(s: var ParseStream): R[Semver] =
       else:
         @[]
     build = buildPrefix & ?s.maybe(parseBuild)
-  initSemver(core[0], core[1], core[2], prerelease, build).ok
+  Semver.init(core[0], core[1], core[2], prerelease, build).ok
 
 func parseSemver*(s: var ParseStream; coerce: static[bool] = false): R[Semver] =
   let sv =

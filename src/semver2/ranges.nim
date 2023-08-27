@@ -212,15 +212,15 @@ func parseXrange(s: var ParseStream): R[ComparatorSet] =
   let lsv = ?s.parse(parseLooseSemver)
   case lsv.hp
   of 0: # *
-    @[initComparator(opGte, initSemver(0, 0, 0))].ok
+    @[initComparator(opGte, Semver.init(0, 0, 0))].ok
   of 1: # 1.*
     @[
-      initComparator(opGte, initSemver(lsv.sv.major, 0, 0)),
+      initComparator(opGte, Semver.init(lsv.sv.major, 0, 0)),
       initComparator(opLt, lsv.sv.bumpMajor(setPrereleaseZero = true)),
     ].ok
   of 2: # 1.2.*
     @[
-      initComparator(opGte, initSemver(lsv.sv.major, lsv.sv.minor, 0)),
+      initComparator(opGte, Semver.init(lsv.sv.major, lsv.sv.minor, 0)),
       initComparator(opLt, lsv.sv.bumpMinor(setPrereleaseZero = true)),
     ].ok
   else: # 1.2.3

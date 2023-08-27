@@ -17,16 +17,16 @@ suite "parsing":
       ("0.0.0-0foo.1", (0, 0, 0, @["0foo", "1"], @[])),
       ("0.0.0-0foo.1+build.1", (0, 0, 0, @["0foo", "1"], @["build", "1"])),
     ]:
-      check initSemver(version) == initSemver(expected)
-      check initSemver(version.addJunk.clean) == initSemver(expected)
+      check Semver.init(version) == Semver.init(expected)
+      check Semver.init(version.addJunk.clean) == Semver.init(expected)
 
   test "parse zero prerelease":
     for (version, expected) in [
       ("1.2.3-rc.0+build.0", (1, 2, 3, @["rc", "0"], @["build", "0"])),
       ("1.2.3-rc.0.0+build.0", (1, 2, 3,@["rc", "0", "0"], @["build", "0"])),
     ]:
-      check initSemver(version) == initSemver(expected)
-      check initSemver(version.addJunk.clean) == initSemver(expected)
+      check Semver.init(version) == Semver.init(expected)
+      check Semver.init(version.addJunk.clean) == Semver.init(expected)
 
   test "raise value error for invalid versions":
     const InvalidVersionStrs = [
@@ -42,7 +42,7 @@ suite "parsing":
     ]
     for version in InvalidVersionStrs:
       expect ValueError:
-        discard initSemver(version)
+        discard Semver.init(version)
 
   test "parse version with coercion":
     for (version, expected) in [
@@ -54,5 +54,5 @@ suite "parsing":
       ("0-0foo.1", (0, 0, 0, @["0foo", "1"], @[])),
       ("0.0-0foo.1+build.1", (0, 0, 0, @["0foo", "1"], @["build", "1"])),
     ]:
-      check initSemver(version, coerce = true) == initSemver(expected)
-      check initSemver(version.addJunk, coerce = true) == initSemver(expected)
+      check Semver.init(version, coerce = true) == Semver.init(expected)
+      check Semver.init(version.addJunk, coerce = true) == Semver.init(expected)
