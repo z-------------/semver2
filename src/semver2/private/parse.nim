@@ -199,12 +199,9 @@ func parsePrerelease*(s: var ParseStream): R[seq[string]] =
 
 # build
 
-func parseBuildIdent*(s: var ParseStream): R[string] =
-  s.oneOf(parseStringOf[Digits], parseAlphanumericIdent)
-
 func parseBuild*(s: var ParseStream): R[seq[string]] =
   discard ?s.parse(parseChar[{'+'}])
-  s.repeat(parseBuildIdent, parseChar[{'.'}])
+  s.repeat(parseStringOf[AlphanumericIdentChars], parseChar[{'.'}])
 
 # semver
 

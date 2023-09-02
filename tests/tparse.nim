@@ -20,6 +20,10 @@ suite "parsing":
       check Semver.init(version) == Semver.init(expected)
       check Semver.init(version.addJunk.clean) == Semver.init(expected)
 
+  test "parse weird builds":
+    check Semver.init("1.2.3+exp.sha.5114f85") == Semver.init(1, 2, 3, @[], @["exp", "sha", "5114f85"])
+    check Semver.init("1.0.0+21AF26D3----117B344092BD") == Semver.init(1, 0, 0, @[], @["21AF26D3----117B344092BD"])
+
   test "parse zero prerelease":
     for (version, expected) in [
       ("1.2.3-rc.0+build.0", (1, 2, 3, @["rc", "0"], @["build", "0"])),
