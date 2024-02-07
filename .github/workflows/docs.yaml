@@ -1,0 +1,35 @@
+name: Docs
+on:
+  push:
+    branches:
+      - master
+env:
+  nim-version: stable
+  nim-src: semver2
+  deploy-dir: _site
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: ${{ env.nim-version }}
+      - run: nimble install -y
+      - name: 'Build docs'
+        run: nimble doc --project --git.url:https://github.com/${{ github.repository }} --git.commit:${{ github.sha }} --git.devel:${{ github.ref_name }} --outdir:${{ env.deploy-dir }} src/${{ env.nim-src }}
+      - name: 'Copy to index.html'
+        run: cp ${{ env.deploy-dir }}/${{ env.nim-src }}.html ${{ env.deploy-dir }}/index.html
+      - uses: actions/upload-pages-artifact@v3
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
