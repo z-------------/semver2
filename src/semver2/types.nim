@@ -59,7 +59,7 @@ func `$`*(sv: Semver): string =
     result.add('+' & sv.build.join("."))
 
 func hash*(sv: Semver): Hash =
-  var h: Hash
+  var h = default Hash
   h = h !& sv.major.hash
   h = h !& sv.minor.hash
   h = h !& sv.patch.hash

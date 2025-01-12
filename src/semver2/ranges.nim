@@ -138,7 +138,9 @@ func parseLooseSemver(s: var ParseStream): R[LooseSemver] =
     build = ?s.maybe(parseBuild)
     lsv = initLooseSemver(core, prerelease, build)
   if validateXRange(lsv):
-    result = lsv.normalizeXRange().ok
+    lsv.normalizeXRange().ok
+  else:
+    R[LooseSemver].err(s.pos)
 
 func parseHyphen(s: var ParseStream): R[ComparatorSet] =
   let left = (?s.parse(parseLooseSemver)).sv
@@ -230,7 +232,7 @@ func parseSimple(s: var ParseStream): R[ComparatorSet] =
   result = s.oneOf(parsePrimitive, parseTilde, parseCaret, parseXrange)
 
 func parseSimpleSet(s: var ParseStream): R[ComparatorSet] =
-  var resultVal: ComparatorSet
+  var resultVal = default ComparatorSet
   let comparators = ?s.repeat(parseSimple, parseChar[{' '}])
   for c in comparators:
     resultVal.add(c)
@@ -295,12 +297,12 @@ func satisfies(sv: Semver; comparatorSet: ComparatorSet): bool =
 
 func satisfies*(sv: Semver; ramge: Range): bool =
   if ramge.len == 0:
-    return true
+    true
   else:
     for comparatorSet in ramge:
       if sv.satisfies(comparatorSet):
-        result = true
-        break
+        return true
+    false
 
 func satisfies*(sv: Semver; rangeStr: string): bool =
   let ramge = parseRange(rangeStr)

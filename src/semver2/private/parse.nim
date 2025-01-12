@@ -40,7 +40,7 @@ func isAtEnd*(s: ParseStream): bool =
   s.pos == s.data.len
 
 func formatState*(s: ParseStream): string =
-  result.add(s.data)
+  result = s.data
   result.add('\n')
   result.add(' '.repeat(s.pos) & "^ (" & $s.pos & ')')
 
@@ -82,7 +82,7 @@ template maybe*[V](s: var ParseStream; parser: Parser(V)): R[V] =
 # repeat
 
 template repeatImpl(resultType: typedesc; parser, separator: untyped; requireFirst: bool): untyped =
-  var resultVal: resultType
+  var resultVal = default resultType
   when requireFirst:
     # parse the first occurence
     resultVal.add(?s.parse(parser))
