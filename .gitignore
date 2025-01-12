@@ -10,3 +10,8 @@ htmldocs
 /nim.cfg
 
 .vscode
+
+config.nims
+nimble.develop
+nimble.paths
+nimbledeps
